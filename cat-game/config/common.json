@@ -1,0 +1,23 @@
+{
+  "description": "PythonとJavaScriptの両方で使用する設定ファイル",
+  "actions": [
+    { "id": 0, "name": "up", "dx": 0, "dy": -2 },
+    { "id": 1, "name": "down", "dx": 0, "dy": 2 },
+    { "id": 2, "name": "left", "dx": -2, "dy": 0 },
+    { "id": 3, "name": "right", "dx": 2, "dy": 0 }
+  ],
+  "observation_space": {
+    "low": 0,
+    "high": 800,
+    "shape": [4],
+    "dtype": "float32"
+  },
+  "environment": {
+    "width": 800,
+    "height": 600,
+    "cat_width": 30,
+    "cat_height": 30,
+    "toy_width": 20,
+    "toy_height": 20
+  }
+}

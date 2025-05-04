@@ -2,22 +2,41 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import random
+import json
 
 class CatToyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, width=800, height=600, max_steps=100, cat_speed=2, cat_width=30, cat_height=30, toy_width=20, toy_height=20):
+    def __init__(self, render_mode=None, max_steps=1000):
         super().__init__()
-        self.width = width
-        self.height = height
-        self.max_steps = max_steps
-        self.cat_speed = cat_speed
-        self.cat_width = cat_width
-        self.cat_height = cat_height
-        self.toy_width = toy_width
-        self.toy_height = toy_height
 
-        self.action_space = spaces.Discrete(4)
+        self.max_steps = max_steps
+
+        # ✅ 設定ファイルを読み込む
+        with open('../cat-game/config/common.json', 'r') as f:
+            config = json.load(f)
+
+        # 環境パラメータを設定ファイルから取得
+        env_config = config['environment']
+        self.width = env_config['width']
+        self.height = env_config['height']
+        self.cat_width = env_config['cat_width']
+        self.cat_height = env_config['cat_height']
+        self.toy_width = env_config['toy_width']
+        self.toy_height = env_config['toy_height']
+
+        # アクション定義を読み込む
+        self.actions = config['actions']
+
+        # 観測空間を設定ファイルから動的に構築
+        obs_config = config['observation_space']
+        self.observation_space = spaces.Box(
+            low=obs_config['low'],
+            high=obs_config['high'],
+            shape=tuple(obs_config['shape']),
+            dtype=getattr(np, obs_config['dtype'])
+        )
+        self.action_space = spaces.Discrete(len(self.actions))  # アクション数を取得
 
         # ✅ 観測空間を Dict から Box(連結済み) に変更：toy_x, toy_y, cat_x, cat_y → shape=(4,)
         self.observation_space = spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32)
@@ -63,14 +82,15 @@ class CatToyEnv(gym.Env):
         )
 
     def _cat_move(self, action):
-        if action == 0:
-            self.cat_y -= self.cat_speed
-        elif action == 1:
-            self.cat_y += self.cat_speed
-        elif action == 2:
-            self.cat_x -= self.cat_speed
-        elif action == 3:
-            self.cat_x += self.cat_speed
+        # ✅ 外部JSONファイルから読み込んだアクションを使用
+        selected_action = next((a for a in self.actions if a['id'] == action), None)
+        if selected_action:
+            self.cat_x += selected_action['dx']
+            self.cat_y += selected_action['dy']
+
+        # 境界チェック
+        self.cat_x = max(0, min(self.cat_x, self.width - self.cat_width))
+        self.cat_y = max(0, min(self.cat_y, self.height - self.cat_height))
 
         self.cat_x = max(0, min(self.cat_x, self.width - self.cat_width))
         self.cat_y = max(0, min(self.cat_y, self.height - self.cat_height))

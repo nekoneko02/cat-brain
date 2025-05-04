@@ -4,7 +4,19 @@ async function loadModel() {
   session = await ort.InferenceSession.create('cat_dqn_policy.onnx');
   console.log(session)
 }
-loadModel();
+
+let actions = [];
+let observation_space = {};
+let environment = {};
+
+async function loadConfig() {
+  const response = await fetch('config/common.json'); // JSONファイルのパス
+  const data = await response.json();
+  actions = data.actions;
+  observation_space = data.observation_space;
+  environment = data.environment;
+  console.log(environment)
+}
 
 async function predictAction(cat, toy) {
   if (!session) throw new Error('Model not loaded yet!');
@@ -24,28 +36,21 @@ async function predictAction(cat, toy) {
   return maxIdx;
 }
 
-
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, scale) {
     super(scene, x, y, 'cat');
-    this.speed = 2;
     this.setScale(scale);
   }
 
   async move(toy) {
     const action = await predictAction(this, toy);
-
-    if (action === 0) {
-      this.y -= this.speed; // �?
-    } else if (action === 1) {
-      this.y += this.speed; // �?
-    } else if (action === 2) {
-      this.x -= this.speed; // 左
-    } else if (action === 3) {
-      this.x += this.speed; // 右
+    const selectedAction = actions.find(a => a.id === action);
+    if (selectedAction) {
+      this.x += selectedAction.dx;
+      this.y += selectedAction.dy;
     }
-
+  
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
     this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
   }
@@ -169,14 +174,23 @@ class GameScene extends Phaser.Scene {
   }
 }
 
-// ゲーム設定
-const config = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  parent: 'game-container',
-  scene: GameScene,
-};
+// ゲームを初期化する関数
+async function initializeGame() {
+  await loadConfig(); // 設定を読み込むまで待機
+  await loadModel(); // モデルを読み込む
 
-// ゲームインスタンスの作成
-const game = new Phaser.Game(config);
+  // ゲーム設定
+  const config = {
+    type: Phaser.AUTO,
+    width: environment.width,
+    height: environment.height,
+    parent: 'game-container',
+    scene: GameScene,
+  };
+
+  // ゲームインスタンスの作成
+  const game = new Phaser.Game(config);
+}
+
+// ゲームを初期化
+initializeGame();
