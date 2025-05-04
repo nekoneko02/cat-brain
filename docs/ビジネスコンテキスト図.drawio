@@ -1,0 +1,141 @@
+<mxfile host="65bd71144e">
+    <diagram id="IQfRqZ4TVtZdgZ6BQn30" name="Page-1">
+        <mxGraphModel dx="1157" dy="1745" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="ユーザー" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="190" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="システム管理者" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="180" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="MLエンジニア" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+                    <mxGeometry x="1240" y="350" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" value="サポート窓口&lt;span style=&quot;font-family: monospace; font-size: 0px; text-align: start;&quot;&gt;%3CmxGraphModel%3E%3Croot%3E%3CmxCell%20id%3D%220%22%2F%3E%3CmxCell%20id%3D%221%22%20parent%3D%220%22%2F%3E%3CmxCell%20id%3D%222%22%20value%3D%22%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E7%AE%A1%E7%90%86%E8%80%85%22%20style%3D%22shape%3DumlActor%3BverticalLabelPosition%3Dbottom%3BverticalAlign%3Dtop%3Bhtml%3D1%3BoutlineConnect%3D0%3B%22%20vertex%3D%221%22%20parent%3D%221%22%3E%3CmxGeometry%20x%3D%22780%22%20y%3D%22180%22%20width%3D%2230%22%20height%3D%2260%22%20as%3D%22geometry%22%2F%3E%3C%2FmxCell%3E%3C%2Froot%3E%3C%2FmxGraphModel%3E&lt;/span&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+                    <mxGeometry x="1240" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="32" value="経営・BI" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+                    <mxGeometry x="1240" y="-140" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="34" value="MLモデルを更新する" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1330" y="330" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="38" value="サポート（電話・メール）" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1330" y="-5" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="39" value="ねこ育成" style="swimlane;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="170" y="-10" width="830" height="640" as="geometry">
+                        <mxRectangle x="170" y="-200" width="90" height="30" as="alternateBounds"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="20" value="アイテム" style="ellipse;shape=umlEntity;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="310" y="365" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="アイテム管理" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="60" y="370" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="21" target="20">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="193" y="302" as="sourcePoint"/>
+                        <mxPoint x="323" y="246" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="15" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="14" target="16">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="340" y="370" as="sourcePoint"/>
+                        <mxPoint x="314" y="273" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="16" value="ユーザー" style="ellipse;shape=umlEntity;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="310" y="145" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" value="ユーザー管理" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="60" y="150" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" value="クレジット" style="ellipse;shape=umlEntity;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="310" y="50" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="26" value="課金管理" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="60" y="55" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="27" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="26" target="25">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="202" y="252" as="sourcePoint"/>
+                        <mxPoint x="321" y="284" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="6" value="ねこ" style="ellipse;shape=umlEntity;whiteSpace=wrap;html=1;" parent="39" vertex="1">
+                    <mxGeometry x="310" y="260" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="7" value="ねこ育成" style="ellipse;whiteSpace=wrap;html=1;" parent="39" vertex="1">
+                    <mxGeometry x="60" y="260" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="" style="endArrow=none;html=1;" parent="39" source="7" target="6" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="190.72919231287756" y="229.11715700120408" as="sourcePoint"/>
+                        <mxPoint x="323.90075848864853" y="292.77081655140046" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="42" value="ペット用品販売店" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="39">
+                    <mxGeometry x="680" y="460" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="43" value="ねこコンシェルジュ" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="39">
+                    <mxGeometry x="680" y="305" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="44" value="ねこマッチング" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="450" y="265" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="45" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="44" target="6">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="210" y="306" as="sourcePoint"/>
+                        <mxPoint x="320" y="309" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="46" value="ねこ育成アドバイス" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="450" y="335" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="47" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="46" target="20">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="210" y="415" as="sourcePoint"/>
+                        <mxPoint x="320" y="415" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="48" value="" style="endArrow=none;html=1;entryX=1;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="39" source="46" target="6">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="460" y="415" as="sourcePoint"/>
+                        <mxPoint x="400" y="415" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="49" value="アイテム販売" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="450" y="445" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="50" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="49" target="20">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="465" y="393" as="sourcePoint"/>
+                        <mxPoint x="399" y="407" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="51" value="動物病院" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="39">
+                    <mxGeometry x="680" y="165" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="52" value="健康管理" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="39">
+                    <mxGeometry x="450" y="160" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="53" value="" style="endArrow=none;html=1;" edge="1" parent="39" source="52" target="6">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="460" y="310" as="sourcePoint"/>
+                        <mxPoint x="400" y="310" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="40" value="DBに直接クエリ" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1330" y="-130" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="41" value="開発・保守・監視" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1330" y="170" width="140" height="70" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

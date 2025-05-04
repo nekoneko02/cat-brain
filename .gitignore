@@ -1,0 +1,76 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg-info/
+*.egg
+*.log
+*.sqlite3
+*.db
+*.env
+*.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+pip-wheel-metadata/
+.coverage
+htmlcov/
+.cache/
+.pytest_cache/
+.tox/
+.mypy_cache/
+*.ipynb_checkpoints
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# ---- Node.js / JavaScript ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+dist/
+build/
+*.local
+*.env
+.env.*
+.next/
+out/
+.cache/
+.DS_Store
+
+# ---- General ----
+*.swp
+*.bak
+*.tmp
+*.log
+*.orig
+Thumbs.db
+desktop.ini
+
+# ---- OS Specific ----
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+ehthumbs.db
+Icon?
+
+# 
+cat-dqn/cat_dqn_policy.onnx
+tmp/*
