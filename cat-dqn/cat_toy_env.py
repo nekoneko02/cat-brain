@@ -62,6 +62,11 @@ class CatToyEnv(gym.Env):
 
     def step(self, action):
         self._cat_move(action)
+
+        # おもちゃをランダムに動かす
+        toy_action = random.choice(range(len(self.actions)))  # ランダムにアクションを選択
+        self._toy_move(toy_action)
+
         reward = self._calculate_reward()
         terminated = self._is_done()
         truncated = False
@@ -92,21 +97,33 @@ class CatToyEnv(gym.Env):
         self.cat_x = max(0, min(self.cat_x, self.width - self.cat_width))
         self.cat_y = max(0, min(self.cat_y, self.height - self.cat_height))
 
-        self.cat_x = max(0, min(self.cat_x, self.width - self.cat_width))
-        self.cat_y = max(0, min(self.cat_y, self.height - self.cat_height))
+    def _toy_move(self, action):
+        # ✅ 外部JSONファイルから読み込んだアクションを使用
+        selected_action = next((a for a in self.actions if a['id'] == action), None)
+        if selected_action:
+            self.toy_x += selected_action['dx']
+            self.toy_y += selected_action['dy']
+
+        # 境界チェック
+        self.toy_x = max(0, min(self.toy_x, self.width - self.toy_width))
+        self.toy_y = max(0, min(self.toy_y, self.height - self.toy_height))
 
     def _calculate_reward(self):
         distance = ((self.cat_x - self.toy_x)**2 + (self.cat_y - self.toy_y)**2)**0.5
-        reward = 100 if distance < 10 else -distance
+        reward = 100 if self._is_collision() else -distance
         if (self.cat_x <= 0 or self.cat_x >= self.width or self.cat_y <= 0 or self.cat_y >= self.height):
             reward -= 10
         reward -= 0.1
         return reward
 
     def _is_done(self):
-        distance = ((self.cat_x - self.toy_x)**2 + (self.cat_y - self.toy_y)**2)**0.5
-        return self.step_count >= self.max_steps or distance < 10
+        return self.step_count >= self.max_steps or self._is_collision()
 
+    def _is_collision(self):
+        return (self.cat_x < self.toy_x + self.toy_width and
+                self.cat_x + self.cat_width > self.toy_x and
+                self.cat_y < self.toy_y + self.toy_height and
+                self.cat_y + self.cat_height > self.toy_y)
     def render(self):
         if self.render_mode == "rgb_array":
             return self._render_frame()
