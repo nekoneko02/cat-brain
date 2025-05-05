@@ -1,5 +1,5 @@
 from pettingzoo import AECEnv
-from pettingzoo.utils import agent_selector
+from pettingzoo.utils.agent_selector import agent_selector
 from gymnasium import spaces
 import numpy as np
 import json
@@ -7,15 +7,11 @@ import random
 
 class CatToyEnv(AECEnv):
     metadata = {"render_modes": ["human"], "name": "cat_toy_env_v0"}
-
-    def __init__(self, render_mode=None, max_steps=1000):
+    
+    def __init__(self, config, render_mode=None, max_steps=1000):
         super().__init__()
         self.render_mode = render_mode
         self.max_steps = max_steps
-
-        # ✅ 設定ファイルを読み込む
-        with open('../cat-game/config/common.json', 'r') as f:
-            config = json.load(f)
 
         # 環境パラメータを設定ファイルから取得
         env_config = config['environment']
