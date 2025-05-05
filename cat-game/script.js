@@ -12,7 +12,8 @@ let environment = {};
 async function loadConfig() {
   const response = await fetch('config/common.json'); // JSONファイルのパス
   const data = await response.json();
-  actions = data.actions;
+  actions = data.actions.cat;
+  console.log(actions)
   observation_space = data.observation_space;
   environment = data.environment;
   console.log(environment)

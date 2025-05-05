@@ -1,22 +1,25 @@
-import gymnasium as gym 
+from pettingzoo import AECEnv
+from pettingzoo.utils.agent_selector import agent_selector
 from gymnasium import spaces
 import numpy as np
-import random
 import json
+from IPython.display import clear_output
+import random
+import os
+import time
+import pygame
 
-class CatToyEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+class CatToyEnv(AECEnv):
+    metadata = {"render_modes": ["human"], "name": "cat_toy_env_v0"}
 
     def __init__(self, render_mode=None, max_steps=1000):
         super().__init__()
-
+        self.render_mode = render_mode
         self.max_steps = max_steps
 
-        # ✅ 設定ファイルを読み込む
         with open('../cat-game/config/common.json', 'r') as f:
             config = json.load(f)
 
-        # 環境パラメータを設定ファイルから取得
         env_config = config['environment']
         self.width = env_config['width']
         self.height = env_config['height']
@@ -25,116 +28,129 @@ class CatToyEnv(gym.Env):
         self.toy_width = env_config['toy_width']
         self.toy_height = env_config['toy_height']
 
-        # アクション定義を読み込む
         self.actions = config['actions']
 
-        # 観測空間を設定ファイルから動的に構築
-        obs_config = config['observation_space']
-        self.observation_space = spaces.Box(
-            low=obs_config['low'],
-            high=obs_config['high'],
-            shape=tuple(obs_config['shape']),
-            dtype=getattr(np, obs_config['dtype'])
-        )
-        self.action_space = spaces.Discrete(len(self.actions))  # アクション数を取得
+        self.possible_agents = ['cat', 'toy']
+        self.agents = self.possible_agents[:]
+        self._agent_selector = agent_selector(self.agents)
+        self.agent_selection = self._agent_selector.next()
 
-        # ✅ 観測空間を Dict から Box(連結済み) に変更：toy_x, toy_y, cat_x, cat_y → shape=(4,)
-        self.observation_space = spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32)
+        self.observation_spaces = {
+            "cat": spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32),
+            "toy": spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32),
+        }
+        self.action_spaces = {
+            "cat": spaces.Discrete(len(self.actions["cat"])),
+            "toy": spaces.Discrete(len(self.actions["toy"])),
+        }
 
-        self.render_mode = render_mode
-        self.window = None
-        self.clock = None
-        self.window_size = (self.width, self.height)
+        # ✅ PettingZoo AECEnv に必要な属性
+        self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
+        self.rewards = {agent: 0.0 for agent in self.agents}
+        self.terminations = {agent: False for agent in self.agents}
+        self.truncations = {agent: False for agent in self.agents}
+        self.infos = {agent: {} for agent in self.agents}
+        self.step_count = 0
+        
+    def observe(self, agent):
+        return np.array([self.toy_x, self.toy_y, self.cat_x, self.cat_y], dtype=np.float32)
 
     def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
+        self.agents = self.possible_agents[:]
+        self._agent_selector = agent_selector(self.agents)
+        self.agent_selection = self._agent_selector.next()
+
+        self.rewards = {a: 0.0 for a in self.agents}
+        self._cumulative_rewards = {a: 0.0 for a in self.agents}
+        self.terminations = {a: False for a in self.agents}
+        self.truncations = {a: False for a in self.agents}
+        self.dones = {a: False for a in self.agents}  # 互換性のために残してもOK
+        self.infos = {a: {} for a in self.agents}
+        self.step_count = 0
+
         self.cat_x = random.randint(0, self.width - self.cat_width)
         self.cat_y = random.randint(0, self.height - self.cat_height)
         self.toy_x = random.randint(0, self.width - self.toy_width)
         self.toy_y = random.randint(0, self.height - self.toy_height)
-        self.step_count = 0
 
-        observation = self._get_obs()
-        info = {}
-        if self.render_mode == "human":
-            self._render_frame()
-        return observation, info
+        return self.observe(self.agent_selection)
+
 
     def step(self, action):
-        self._cat_move(action)
-        reward = self._calculate_reward()
-        terminated = self._is_done()
-        truncated = False
-        observation = self._get_obs()
-        info = {}
+        agent = self.agent_selection
+
+        if self.terminations[agent] or self.truncations[agent]:
+            self._was_dead_step(action)
+            return
+
+        selected_action = self.actions[agent][action]
+        dx = selected_action["dx"]
+        dy = selected_action["dy"]
+
+        if agent == "cat":
+            self.cat_x = np.clip(self.cat_x + dx, 0, self.width - self.cat_width)
+            self.cat_y = np.clip(self.cat_y + dy, 0, self.height - self.cat_height)
+        elif agent == "toy":
+            self.toy_x = np.clip(self.toy_x + dx, 0, self.width - self.toy_width)
+            self.toy_y = np.clip(self.toy_y + dy, 0, self.height - self.toy_height)
+
+        collision = self._is_collision()
+        if collision:
+            self.terminations = {a: True for a in self.agents}
+            self.rewards["cat"] = 100.0
+            self.rewards["toy"] = -100.0
+        elif self.step_count >= self.max_steps:
+            self.truncations = {a: True for a in self.agents}
+        else:        
+            distance = ((self.cat_x - self.toy_x) ** 2 + (self.cat_y - self.toy_y) ** 2) ** 0.5
+            self.rewards["cat"] = -distance
+            self.rewards["toy"] = distance
+        if self.step_count >= self.max_steps:
+            self.truncations[agent] = True
+
+        # ✅ 報酬加算
+        self._cumulative_rewards[agent] += self.rewards[agent]
         self.step_count += 1
 
+        # ✅ 次のエージェントへ切り替え
+        self.agent_selection = self._agent_selector.next()
+        
         if self.render_mode == "human":
-            self._render_frame()
+            self.render()
 
-        return observation, reward, terminated, truncated, info
-
-    def _get_obs(self):
-        # ✅ Dict ではなく、単一の float32 配列を返す
-        return np.array(
-            [self.toy_x, self.toy_y, self.cat_x, self.cat_y],
-            dtype=np.float32
+    def _is_collision(self):
+        return (
+            self.cat_x < self.toy_x + self.toy_width and
+            self.cat_x + self.cat_width > self.toy_x and
+            self.cat_y < self.toy_y + self.toy_height and
+            self.cat_y + self.cat_height > self.toy_y
         )
 
-    def _cat_move(self, action):
-        # ✅ 外部JSONファイルから読み込んだアクションを使用
-        selected_action = next((a for a in self.actions if a['id'] == action), None)
-        if selected_action:
-            self.cat_x += selected_action['dx']
-            self.cat_y += selected_action['dy']
-
-        # 境界チェック
-        self.cat_x = max(0, min(self.cat_x, self.width - self.cat_width))
-        self.cat_y = max(0, min(self.cat_y, self.height - self.cat_height))
-
-        self.cat_x = max(0, min(self.cat_x, self.width - self.cat_width))
-        self.cat_y = max(0, min(self.cat_y, self.height - self.cat_height))
-
-    def _calculate_reward(self):
-        distance = ((self.cat_x - self.toy_x)**2 + (self.cat_y - self.toy_y)**2)**0.5
-        reward = 100 if distance < 10 else -distance
-        if (self.cat_x <= 0 or self.cat_x >= self.width or self.cat_y <= 0 or self.cat_y >= self.height):
-            reward -= 10
-        reward -= 0.1
-        return reward
-
-    def _is_done(self):
-        distance = ((self.cat_x - self.toy_x)**2 + (self.cat_y - self.toy_y)**2)**0.5
-        return self.step_count >= self.max_steps or distance < 10
-
     def render(self):
-        if self.render_mode == "rgb_array":
-            return self._render_frame()
+        grid_size = 30  # 小さなグリッドに変更
+        grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
-    def _render_frame(self):
-        import pygame
-        if self.window is None and self.render_mode == "human":
-            pygame.init()
-            pygame.display.init()
-            self.window = pygame.display.set_mode(self.window_size)
-        if self.clock is None and self.render_mode == "human":
-            self.clock = pygame.time.Clock()
-
-        canvas = pygame.Surface(self.window_size)
-        canvas.fill((255, 255, 255))
-        pygame.draw.rect(canvas, (255, 0, 0), pygame.Rect(self.toy_x, self.toy_y, self.toy_width, self.toy_height))
-        pygame.draw.rect(canvas, (0, 0, 255), pygame.Rect(self.cat_x, self.cat_y, self.cat_width, self.cat_height))
-
-        if self.render_mode == "human":
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
-            self.clock.tick(self.metadata["render_fps"])
+        # CatとToyの位置に記号を配置（同じ場所なら C&T と表示）
+        if self.cat_x == self.toy_x and self.cat_y == self.toy_y:
+            grid[self.cat_y*grid_size//self.height][self.cat_x*grid_size//self.width] = "C&T"
         else:
-            return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
+            grid[self.cat_y*grid_size//self.height][self.cat_x*grid_size//self.width] = "C"
+            grid[self.toy_y*grid_size//self.height][self.toy_x*grid_size//self.width] = "T"
+
+        # (ipynbだけ)ターミナルをクリアするためにclear_outputを使用
+        clear_output(wait=True)
+
+        # グリッドを出力（y=0が上になるように反転）
+        for row in reversed(grid):
+            print(" ".join(row))  # 一行ごとに表示
+        print("-" * (2 * grid_size))
+
+        # その他の情報を表示
+        print(f"agent: {self.agent_selection}, count: {self.step_count}, cat: {self.cat_x}, {self.cat_y}, toy: {self.toy_x}, {self.toy_y}")
+
+        # フレーム間の遅延（1フレームごとの更新時間）
+        time.sleep(0.05)  # 0.5秒ごとに更新（調整可能）
+
 
     def close(self):
-        if self.window is not None:
-            import pygame
-            pygame.display.quit()
-            pygame.quit()
+        pass  # 特にリソース解放がなければ空でOK
