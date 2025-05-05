@@ -27,6 +27,7 @@ class CatToyEnv(AECEnv):
         self.cat_height = env_config['cat_height']
         self.toy_width = env_config['toy_width']
         self.toy_height = env_config['toy_height']
+        self.state_scale = env_config['state_scale']
 
         self.actions = config['actions']
 
@@ -36,8 +37,8 @@ class CatToyEnv(AECEnv):
         self.agent_selection = self._agent_selector.next()
 
         self.observation_spaces = {
-            "cat": spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32),
-            "toy": spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32),
+            agent: spaces.Box(low=0, high=1, shape=(1, int(self.height*self.state_scale), int(self.width*self.state_scale)), dtype=np.float32)
+            for agent in self.possible_agents
         }
         self.action_spaces = {
             "cat": spaces.Discrete(len(self.actions["cat"])),
@@ -53,7 +54,27 @@ class CatToyEnv(AECEnv):
         self.step_count = 0
         
     def observe(self, agent):
-        return np.array([self.toy_x, self.toy_y, self.cat_x, self.cat_y], dtype=np.float32)
+        # 1/10にスケールして、stateを返す
+        scaled_cat_x = int(self.cat_x * self.state_scale)
+        scaled_cat_y = int(self.cat_y * self.state_scale)
+        scaled_toy_x = int(self.toy_x * self.state_scale)
+        scaled_toy_y = int(self.toy_y * self.state_scale)
+
+        obs = np.zeros(self.observation_spaces["cat"].shape, dtype=np.float32)
+
+        # Cat の位置（矩形領域）を 1 に設定
+        obs[0,
+            scaled_cat_y:scaled_cat_y + int(self.cat_height*self.state_scale),
+            scaled_cat_x:scaled_cat_x + int(self.cat_width*self.state_scale)
+        ] = 1.0
+        # Toy の位置（矩形領域）を 0.5 に設定（オーバーラップ判定のため）
+        obs[0,
+            scaled_toy_y:scaled_toy_y + int(self.toy_height*self.state_scale),
+            scaled_toy_x:scaled_toy_x + int(self.toy_width*self.state_scale)
+        ] = 0.5
+
+        return obs
+
 
     def reset(self, seed=None, options=None):
         self.agents = self.possible_agents[:]
