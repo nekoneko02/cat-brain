@@ -3,7 +3,11 @@ from pettingzoo.utils.agent_selector import agent_selector
 from gymnasium import spaces
 import numpy as np
 import json
+from IPython.display import clear_output
 import random
+import os
+import time
+import pygame
 
 class CatToyEnv(AECEnv):
     metadata = {"render_modes": ["human"], "name": "cat_toy_env_v0"}
@@ -47,7 +51,11 @@ class CatToyEnv(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
         self.step_count = 0
-
+        if self.render_mode == "human":
+            pygame.init()
+            self.screen = pygame.display.set_mode((self.width, self.height))
+            pygame.display.set_caption("Cat and Toy Game")
+            self.clock = pygame.time.Clock()
     def observe(self, agent):
         return np.array([self.toy_x, self.toy_y, self.cat_x, self.cat_y], dtype=np.float32)
 
@@ -109,10 +117,10 @@ class CatToyEnv(AECEnv):
         # ✅ 次のエージェントへ切り替え
         self.agent_selection = self._agent_selector.next()
 
-        # ✅ 累積報酬と一時報酬をクリア
-        next_agent = self.agent_selection
-        self._cumulative_rewards[next_agent] = 0.0
         self._clear_rewards()
+        
+        if self.render_mode == "human":
+            self.render()
 
     def _is_collision(self):
         return (
@@ -123,6 +131,18 @@ class CatToyEnv(AECEnv):
         )
 
     def render(self):
-        print(f"Cat: ({self.cat_x}, {self.cat_y}), Toy: ({self.toy_x}, {self.toy_y})")
+        # 画面を黒で塗りつぶす
+        self.screen.fill((0, 0, 0))
+
+        # Cat と Toy の描画
+        pygame.draw.rect(self.screen, (255, 0, 0), (self.cat_x, self.cat_y, self.cat_width, self.cat_height))  # 赤色で猫
+        pygame.draw.rect(self.screen, (0, 255, 0), (self.toy_x, self.toy_y, self.toy_width, self.toy_height))  # 緑色でおもちゃ
+
+        # 画面更新
+        pygame.display.flip()
+
+        # 1フレームの間隔を設定
+        self.clock.tick(30)  # 30 FPS
+
     def close(self):
-        pass  # 特にリソース解放がなければ空でOK
+        pygame.quit()  # pygameを終了
