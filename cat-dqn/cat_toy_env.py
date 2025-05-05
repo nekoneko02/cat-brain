@@ -40,8 +40,8 @@ class CatToyEnv(AECEnv):
             "toy": spaces.Box(low=0, high=max(self.width, self.height), shape=(4,), dtype=np.float32),
         }
         self.action_spaces = {
-            "cat": spaces.Discrete(len(self.actions)),
-            "toy": spaces.Discrete(len(self.actions)),
+            "cat": spaces.Discrete(len(self.actions["cat"])),
+            "toy": spaces.Discrete(len(self.actions["toy"])),
         }
 
         # ✅ PettingZoo AECEnv に必要な属性
@@ -51,11 +51,7 @@ class CatToyEnv(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
         self.step_count = 0
-        if self.render_mode == "human":
-            pygame.init()
-            self.screen = pygame.display.set_mode((self.width, self.height))
-            pygame.display.set_caption("Cat and Toy Game")
-            self.clock = pygame.time.Clock()
+        
     def observe(self, agent):
         return np.array([self.toy_x, self.toy_y, self.cat_x, self.cat_y], dtype=np.float32)
 
@@ -87,7 +83,7 @@ class CatToyEnv(AECEnv):
             self._was_dead_step(action)
             return
 
-        selected_action = self.actions[action]
+        selected_action = self.actions[agent][action]
         dx = selected_action["dx"]
         dy = selected_action["dy"]
 
@@ -105,10 +101,12 @@ class CatToyEnv(AECEnv):
             self.rewards["toy"] = -100.0
         elif self.step_count >= self.max_steps:
             self.truncations = {a: True for a in self.agents}
-        else:
+        else:        
             distance = ((self.cat_x - self.toy_x) ** 2 + (self.cat_y - self.toy_y) ** 2) ** 0.5
             self.rewards["cat"] = -distance
             self.rewards["toy"] = distance
+        if self.step_count >= self.max_steps:
+            self.truncations[agent] = True
 
         # ✅ 報酬加算
         self._cumulative_rewards[agent] += self.rewards[agent]
@@ -116,8 +114,6 @@ class CatToyEnv(AECEnv):
 
         # ✅ 次のエージェントへ切り替え
         self.agent_selection = self._agent_selector.next()
-
-        self._clear_rewards()
         
         if self.render_mode == "human":
             self.render()
@@ -131,18 +127,30 @@ class CatToyEnv(AECEnv):
         )
 
     def render(self):
-        # 画面を黒で塗りつぶす
-        self.screen.fill((0, 0, 0))
+        grid_size = 30  # 小さなグリッドに変更
+        grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
-        # Cat と Toy の描画
-        pygame.draw.rect(self.screen, (255, 0, 0), (self.cat_x, self.cat_y, self.cat_width, self.cat_height))  # 赤色で猫
-        pygame.draw.rect(self.screen, (0, 255, 0), (self.toy_x, self.toy_y, self.toy_width, self.toy_height))  # 緑色でおもちゃ
+        # CatとToyの位置に記号を配置（同じ場所なら C&T と表示）
+        if self.cat_x == self.toy_x and self.cat_y == self.toy_y:
+            grid[self.cat_y*grid_size//self.height][self.cat_x*grid_size//self.width] = "C&T"
+        else:
+            grid[self.cat_y*grid_size//self.height][self.cat_x*grid_size//self.width] = "C"
+            grid[self.toy_y*grid_size//self.height][self.toy_x*grid_size//self.width] = "T"
 
-        # 画面更新
-        pygame.display.flip()
+        # (ipynbだけ)ターミナルをクリアするためにclear_outputを使用
+        clear_output(wait=True)
 
-        # 1フレームの間隔を設定
-        self.clock.tick(30)  # 30 FPS
+        # グリッドを出力（y=0が上になるように反転）
+        for row in reversed(grid):
+            print(" ".join(row))  # 一行ごとに表示
+        print("-" * (2 * grid_size))
+
+        # その他の情報を表示
+        print(f"agent: {self.agent_selection}, count: {self.step_count}, cat: {self.cat_x}, {self.cat_y}, toy: {self.toy_x}, {self.toy_y}")
+
+        # フレーム間の遅延（1フレームごとの更新時間）
+        time.sleep(0.05)  # 0.5秒ごとに更新（調整可能）
+
 
     def close(self):
-        pygame.quit()  # pygameを終了
+        pass  # 特にリソース解放がなければ空でOK

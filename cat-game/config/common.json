@@ -1,11 +1,19 @@
 {
   "description": "PythonとJavaScriptの両方で使用する設定ファイル",
-  "actions": [
-    { "id": 0, "name": "up", "dx": 0, "dy": -2 },
-    { "id": 1, "name": "down", "dx": 0, "dy": 2 },
-    { "id": 2, "name": "left", "dx": -2, "dy": 0 },
-    { "id": 3, "name": "right", "dx": 2, "dy": 0 }
-  ],
+  "actions":{
+    "cat": [
+      { "id": 0, "name": "up", "dx": 0, "dy": -3 },
+      { "id": 1, "name": "down", "dx": 0, "dy": 3 },
+      { "id": 2, "name": "left", "dx": -3, "dy": 0 },
+      { "id": 3, "name": "right", "dx": 3, "dy": 0 }
+    ],
+    "toy": [
+      { "id": 0, "name": "up", "dx": 0, "dy": -1 },
+      { "id": 1, "name": "down", "dx": 0, "dy": 1 },
+      { "id": 2, "name": "left", "dx": -1, "dy": 0 },
+      { "id": 3, "name": "right", "dx": 1, "dy": 0 }
+    ]
+  },
   "observation_space": {
     "low": 0,
     "high": 800,
