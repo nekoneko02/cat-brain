@@ -21,12 +21,12 @@ async function predictAction(cat, toy) {
   if (!session) throw new Error('Model not loaded yet!');
 
   const input = new Float32Array([
-    toy.x, toy.y,
     cat.x, cat.y,
+    toy.x, toy.y,
+    400,300
   ]);
 
-  const tensor = new ort.Tensor('float32', input, [1, 4]);
-
+  const tensor = new ort.Tensor('float32', input, [1, 6]);
   const results = await session.run({ obs: tensor });
   const output = results.q_values.data; // Q値
 
