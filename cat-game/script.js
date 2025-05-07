@@ -13,29 +13,27 @@ async function loadConfig() {
   const response = await fetch('config/common.json'); // JSONファイルのパス
   const data = await response.json();
   actions = data.actions.cat;
-  console.log(actions)
   observation_space = data.observation_space;
   environment = data.environment;
-  console.log(environment)
 }
 
 async function predictAction(cat, toy) {
   if (!session) throw new Error('Model not loaded yet!');
 
   const input = new Float32Array([
-    toy.x, toy.y,
     cat.x, cat.y,
+    toy.x, toy.y,
+    400,300
   ]);
 
-  const tensor = new ort.Tensor('float32', input, [1, 4]);
-
+  const tensor = new ort.Tensor('float32', input, [1, 6]);
   const results = await session.run({ obs: tensor });
   const output = results.q_values.data; // Q値
 
   // 最大のQ値を持つ行動
   const maxIdx = output.indexOf(Math.max(...output));
   return maxIdx;
-}
+}  
 
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
