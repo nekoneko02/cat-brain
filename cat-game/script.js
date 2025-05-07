@@ -13,10 +13,8 @@ async function loadConfig() {
   const response = await fetch('config/common.json'); // JSONファイルのパス
   const data = await response.json();
   actions = data.actions.cat;
-  console.log(actions)
   observation_space = data.observation_space;
   environment = data.environment;
-  console.log(environment)
 }
 
 async function predictAction(cat, toy) {
@@ -35,7 +33,7 @@ async function predictAction(cat, toy) {
   // 最大のQ値を持つ行動
   const maxIdx = output.indexOf(Math.max(...output));
   return maxIdx;
-}
+}  
 
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
