@@ -27,6 +27,6 @@
     "cat_height": 30,
     "toy_width": 20,
     "toy_height": 20,
-    "state_scale": 0.1
+    "state_scale": 1
   }
 }
