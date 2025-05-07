@@ -44,6 +44,9 @@ class CatToyEnv(AECEnv):
             "cat": spaces.Discrete(len(self.actions["cat"])),
             "toy": spaces.Discrete(len(self.actions["toy"])),
         }
+        
+        # 距離の最大値。報酬のスケールに使用
+        self.max_distance = ((self.width - self.cat_width) ** 2 + (self.height - self.cat_height) ** 2) ** 0.5
 
         # ✅ PettingZoo AECEnv に必要な属性
         self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
@@ -54,7 +57,6 @@ class CatToyEnv(AECEnv):
         self.step_count = 0
         
     def observe(self, agent):
-        # 1/10にスケールして、stateを返す
         scaled_cat_x = int(self.cat_x * self.state_scale)
         scaled_cat_y = int(self.cat_y * self.state_scale)
         scaled_toy_x = int(self.toy_x * self.state_scale)
@@ -108,26 +110,33 @@ class CatToyEnv(AECEnv):
         dx = selected_action["dx"]
         dy = selected_action["dy"]
 
-        if agent == "cat":
-            self.cat_x = np.clip(self.cat_x + dx, 0, self.width - self.cat_width)
-            self.cat_y = np.clip(self.cat_y + dy, 0, self.height - self.cat_height)
-        elif agent == "toy":
-            self.toy_x = np.clip(self.toy_x + dx, 0, self.width - self.toy_width)
-            self.toy_y = np.clip(self.toy_y + dy, 0, self.height - self.toy_height)
+        # 壁にぶつかった場合、移動しないようにし、報酬を減らす
+        if (agent == "cat"):
+            if (self.cat_x + dx < 0 or self.cat_x + dx > self.width or
+                self.cat_y + dy < 0 or self.cat_y + dy > self.height):
+                self.rewards[agent] += -1
+            else:
+                self.cat_x += dx
+                self.cat_y += dy
+        if (agent == "toy"):
+            if (self.toy_x + dx < 0 or self.toy_x + dx > self.width or
+                self.toy_y + dy < 0 or self.toy_y + dy > self.height):
+                self.rewards[agent] += -1
+            else:
+                self.toy_x += dx
+                self.toy_y += dy
 
         collision = self._is_collision()
         if collision:
             self.terminations = {a: True for a in self.agents}
-            self.rewards["cat"] = 100.0
-            self.rewards["toy"] = -100.0
+            self.rewards["cat"] += 1.0
+            self.rewards["toy"] += -1.0
         elif self.step_count >= self.max_steps:
             self.truncations = {a: True for a in self.agents}
         else:        
             distance = ((self.cat_x - self.toy_x) ** 2 + (self.cat_y - self.toy_y) ** 2) ** 0.5
-            self.rewards["cat"] = -distance
-            self.rewards["toy"] = distance
-        if self.step_count >= self.max_steps:
-            self.truncations[agent] = True
+            self.rewards["cat"] += -distance / self.max_distance
+            self.rewards["toy"] += distance / self.max_distance
 
         # ✅ 報酬加算
         self._cumulative_rewards[agent] += self.rewards[agent]
@@ -135,7 +144,7 @@ class CatToyEnv(AECEnv):
 
         # ✅ 次のエージェントへ切り替え
         self.agent_selection = self._agent_selector.next()
-        
+        self._clear_rewards()
         if self.render_mode == "human":
             self.render()
 
