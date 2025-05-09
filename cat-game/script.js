@@ -1,9 +1,15 @@
 let session;
 
 async function loadModel() {
-  session = await ort.InferenceSession.create('cat_dqn_policy.onnx');
-  console.log(session)
+  try {
+    console.log('Loading model...');
+    session = await ort.InferenceSession.create('./cat_dqn_policy.onnx');
+    console.log('Model loaded:', session);
+  } catch (error) {
+    console.error('Failed to load model:', error);
+  }
 }
+
 
 let actions = [];
 let observation_space = {};
@@ -29,7 +35,6 @@ async function predictAction(cat, toy) {
   const tensor = new ort.Tensor('float32', input, [1, 6]);
   const results = await session.run({ obs: tensor });
   const output = results.q_values.data; // Q値
-
   // 最大のQ値を持つ行動
   const maxIdx = output.indexOf(Math.max(...output));
   return maxIdx;
@@ -44,7 +49,7 @@ class Cat extends Phaser.GameObjects.Sprite {
 
   async move(toy) {
     const action = await predictAction(this, toy);
-    const selectedAction = actions.find(a => a.id === action);
+    const selectedAction = actions[action];
     if (selectedAction) {
       this.x += selectedAction.dx;
       this.y += selectedAction.dy;
