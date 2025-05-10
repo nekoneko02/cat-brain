@@ -158,7 +158,7 @@ class CatToyEnv(AECEnv):
             grid[int(grid_size*(cat_y/self.height))][int(grid_size*(cat_x/self.width))] = "C&T"
         else:
             grid[int(grid_size*(cat_y/self.height))][int(grid_size*(cat_x/self.width))] = "C"
-            grid[int(grid_size*(toy_y/self.width))][int(grid_size*(toy_x/self.width))] = "T"
+            grid[int(grid_size*(toy_y/self.height))][int(grid_size*(toy_x/self.width))] = "T"
 
         # (ipynbだけ)ターミナルをクリアするためにclear_outputを使用
         clear_output(wait=True)

@@ -37,5 +37,10 @@
     "cat_height": 30,
     "toy_width": 20,
     "toy_height": 20
+  },
+  "model": {
+    "v_min": -10,
+    "v_max": 10,
+    "num_atoms": 10
   }
 }
