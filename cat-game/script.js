@@ -1,9 +1,15 @@
 let session;
 
 async function loadModel() {
-  session = await ort.InferenceSession.create('cat_dqn_policy.onnx');
-  console.log(session)
+  try {
+    console.log('Loading model...');
+    session = await ort.InferenceSession.create('./cat_dqn_policy.onnx');
+    console.log('Model loaded:', session);
+  } catch (error) {
+    console.error('Failed to load model:', error);
+  }
 }
+
 
 let actions = [];
 let observation_space = {};
@@ -15,9 +21,10 @@ async function loadConfig() {
   actions = data.actions.cat;
   observation_space = data.observation_space;
   environment = data.environment;
+  model_config = data.model;
 }
 
-async function predictAction(cat, toy) {
+async function predictAction(cat, toy, z_support) {
   if (!session) throw new Error('Model not loaded yet!');
 
   const input = new Float32Array([
@@ -27,24 +34,46 @@ async function predictAction(cat, toy) {
   ]);
 
   const tensor = new ort.Tensor('float32', input, [1, 6]);
-  const results = await session.run({ obs: tensor });
-  const output = results.q_values.data; // Q値
-
+  const results = await session.run({ obs: tensor }); // [1, action_size, num_atoms]
+  const output = sum(results.probabilities.data, z_support); // [action_size]
   // 最大のQ値を持つ行動
   const maxIdx = output.indexOf(Math.max(...output));
   return maxIdx;
-}  
+}
+
+function linspace(v_min, v_max, num_atoms) {
+  const arr = new Array(num_atoms);
+  for (let i = 0; i < num_atoms; i++) {
+      arr[i] = v_min + (v_max - v_min) * (i / (num_atoms - 1));
+  }
+  return arr;
+}
+
+function sum(probabilities, z_support) {
+  // probabilities は [num_actions, num_atoms] の形
+  const num_actions = actions.length;
+  const result = new Array(num_actions);
+  for (let action_i = 0; action_i < num_actions; action_i++) {
+    let sum = 0;
+    for (let atom_i = 0; atom_i < z_support.length; atom_i++) {
+        sum += probabilities[action_i * z_support.length + atom_i] * z_support[atom_i];
+    }
+    result[action_i] = sum;
+  }
+  return result;
+}
 
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, scale) {
     super(scene, x, y, 'cat');
     this.setScale(scale);
+    this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
   }
 
   async move(toy) {
-    const action = await predictAction(this, toy);
-    const selectedAction = actions.find(a => a.id === action);
+    const action = await predictAction(this, toy, this.z_support);
+    const selectedAction = actions[action];
     if (selectedAction) {
       this.x += selectedAction.dx;
       this.y += selectedAction.dy;

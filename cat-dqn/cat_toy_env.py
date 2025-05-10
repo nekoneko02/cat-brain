@@ -23,6 +23,7 @@ class CatToyEnv(AECEnv):
         env_config = config['environment']
         self.width = env_config['width']
         self.height = env_config['height']
+        self.max_distance = self.width + self.height
         self.cat_width = env_config['cat_width']
         self.cat_height = env_config['cat_height']
         self.toy_width = env_config['toy_width']
@@ -36,13 +37,12 @@ class CatToyEnv(AECEnv):
         self.agent_selection = self._agent_selector.next()
 
         self.observation_spaces = {
-            agent: spaces.Box(low=0, high=max(self.width, self.height), shape=(6,), dtype=np.float32)
+            agent: spaces.Box(low=0, high=max(self.width - 1, self.height - 1), shape=(6,), dtype=np.float32)
             for agent in self.possible_agents
         }
         self.action_spaces = {
-            "cat": spaces.Discrete(len(self.actions["cat"])),
-            "toy": spaces.Discrete(len(self.actions["toy"])),
-            "dummy": spaces.Discrete(1)  # dummyは行動しない
+            agent: spaces.Discrete(len(self.actions[agent]))
+            for agent in self.possible_agents
         }
 
         self.positions = {"cat": (0, 0), "dummy": (0, 0), "toy": (0, 0)}
@@ -71,9 +71,12 @@ class CatToyEnv(AECEnv):
         self.infos = {a: {} for a in self.agents}
         self.step_count = 0
 
-        self.positions["cat"] = (random.randint(0, self.width - self.cat_width), random.randint(0, self.height - self.cat_height))
-        self.positions["toy"] = (random.randint(0, self.width - self.toy_width), random.randint(0, self.height - self.toy_height))
-        self.positions["dummy"] = (random.randint(0, self.width - self.toy_width), random.randint(0, self.height - self.toy_height))
+        distance = 0
+        while distance < 100: # 100以上の距離になるように初期値設定
+            self.positions["cat"] = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
+            self.positions["toy"] = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
+            self.positions["dummy"] = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
+            distance = self.distance("cat", "toy")
 
         return self.observe(self.agent_selection)
 
@@ -84,31 +87,35 @@ class CatToyEnv(AECEnv):
             self._was_dead_step(action)
             return
 
-        if agent != "dummy":
-            selected_action = self.actions[agent][action]
-            dx, dy = selected_action["dx"], selected_action["dy"]
-            x, y = self.positions[agent]
-            new_x, new_y = x + dx, y + dy
+        if agent == "dummy":
+            # dummyはランダムに動く
+            action = random.choice(range(self.action_spaces["dummy"].n))
 
-            if 0 <= new_x <= self.width and 0 <= new_y <= self.height:
-                self.positions[agent] = (new_x, new_y)
-            else:
-                self.rewards[agent] += -100.0  # 壁にぶつかった場合のペナルティ
+        prev_distance = self.distance("cat", "toy")
+
+        selected_action = self.actions[agent][action]
+        dx, dy = selected_action["dx"], selected_action["dy"]
+        x, y = self.positions[agent]
+        new_x, new_y = x + dx, y + dy
+
+        if 0 <= new_x < self.width and 0 <= new_y < self.height:
+            self.positions[agent] = (new_x, new_y)
+        else:
+            self.rewards[agent] += -1.0  # 壁にぶつかった場合のペナルティ
 
         collision = self._is_collision()
         if collision:
+            print("finish by", agent)
             self.terminations = {a: True for a in self.agents}
-            self.rewards["cat"] += 100.0
-            self.rewards["toy"] += -100.0
+            self.rewards["cat"] += 10.0
+            self.rewards["toy"] += -10.0
             # ✅ 報酬加算
             self._cumulative_rewards["cat"] += self.rewards["cat"]
             self._cumulative_rewards["toy"] += self.rewards["toy"]
-        else:        
-            cat_x, cat_y = self.positions["cat"]
-            toy_x, toy_y = self.positions["toy"]
-            distance = ((cat_x - toy_x) ** 2 + (cat_y - toy_y) ** 2) ** 0.5
-            self.rewards["cat"] += -distance
-            self.rewards["toy"] += distance
+        else:
+            distance = self.distance("cat", "toy")
+            self.rewards["cat"] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
+            self.rewards["toy"] += 0.5 if distance < prev_distance else 1 # 生存報酬. 遠ざかる方がプラス
             # ✅ 報酬加算
             self._cumulative_rewards[agent] += self.rewards[agent]
 
@@ -122,17 +129,25 @@ class CatToyEnv(AECEnv):
         if self.render_mode == "human":
             self.render()
 
+    def distance(self, agent1, agent2):
+        agent1_x, agent1_y = self.positions[agent1]
+        agent2_x, agent2_y = self.positions[agent2]
+        distance = ((agent1_x - agent2_x) ** 2 + (agent1_y - agent2_y) ** 2) ** 0.5
+        return distance
+    
     def _is_collision(self):
-        cat_x, cat_y = self.positions["cat"]
-        toy_x, toy_y = self.positions["toy"]
-        return (
-            cat_x < toy_x + self.toy_width and
-            cat_x + self.cat_width > toy_x and
-            cat_y < toy_y + self.toy_height and
-            cat_y + self.cat_height > toy_y
-        )
+        distance = self.distance("cat", "toy")
+        # CatとToyのサイズを考慮して衝突判定を行う
+        cat_size = (self.cat_width + self.cat_height) / 2
+        toy_size = (self.toy_width + self.toy_height) / 2
+        if distance < (cat_size + toy_size) / 2:
+            return True
+        
+        return False
     
     def render(self):
+        if self.step_count % 30 != 0:
+            return
         grid_size = 30  # 小さなグリッドに変更
         grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
@@ -140,10 +155,10 @@ class CatToyEnv(AECEnv):
         toy_x, toy_y = self.positions["toy"]
         # CatとToyの位置に記号を配置（同じ場所なら C&T と表示）
         if cat_x == toy_x and cat_y == toy_y:
-            grid[cat_y*grid_size//self.height][cat_x*grid_size//self.width] = "C&T"
+            grid[int(grid_size*(cat_y/self.height))][int(grid_size*(cat_x/self.width))] = "C&T"
         else:
-            grid[cat_y*grid_size//self.height][cat_x*grid_size//self.width] = "C"
-            grid[toy_y*grid_size//self.height][toy_x*grid_size//self.width] = "T"
+            grid[int(grid_size*(cat_y/self.height))][int(grid_size*(cat_x/self.width))] = "C"
+            grid[int(grid_size*(toy_y/self.height))][int(grid_size*(toy_x/self.width))] = "T"
 
         # (ipynbだけ)ターミナルをクリアするためにclear_outputを使用
         clear_output(wait=True)
