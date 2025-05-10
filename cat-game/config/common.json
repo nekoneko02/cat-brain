@@ -5,9 +5,19 @@
       { "id": 0, "name": "up", "dx": 0, "dy": -3 },
       { "id": 1, "name": "down", "dx": 0, "dy": 3 },
       { "id": 2, "name": "left", "dx": -3, "dy": 0 },
-      { "id": 3, "name": "right", "dx": 3, "dy": 0 }
+      { "id": 3, "name": "right", "dx": 3, "dy": 0 },
+      { "id": 4, "name": "left-down", "dx": -2, "dy": 2 },
+      { "id": 5, "name": "left-up", "dx": -2, "dy": -2 },
+      { "id": 6, "name": "right-down", "dx": 2, "dy": 2 },
+      { "id": 7, "name": "right-up", "dx": 2, "dy": -2 }
     ],
     "toy": [
+      { "id": 0, "name": "up", "dx": 0, "dy": -1 },
+      { "id": 1, "name": "down", "dx": 0, "dy": 1 },
+      { "id": 2, "name": "left", "dx": -1, "dy": 0 },
+      { "id": 3, "name": "right", "dx": 1, "dy": 0 }
+    ],
+    "dummy": [
       { "id": 0, "name": "up", "dx": 0, "dy": -1 },
       { "id": 1, "name": "down", "dx": 0, "dy": 1 },
       { "id": 2, "name": "left", "dx": -1, "dy": 0 },
