@@ -19,6 +19,8 @@ class CatToyEnv(AECEnv):
 
         with open('../cat-game/config/common.json', 'r') as f:
             config = json.load(f)
+        
+        obs_config = config['observation_space']
 
         env_config = config['environment']
         self.width = env_config['width']
@@ -37,7 +39,7 @@ class CatToyEnv(AECEnv):
         self.agent_selection = self._agent_selector.next()
 
         self.observation_spaces = {
-            agent: spaces.Box(low=0, high=max(self.width - 1, self.height - 1), shape=(6,), dtype=np.float32)
+            agent: spaces.Box(low=0, high=max(self.width - 1, self.height - 1), shape=obs_config[agent]["shape"], dtype=np.float32)
             for agent in self.possible_agents
         }
         self.action_spaces = {
@@ -57,7 +59,14 @@ class CatToyEnv(AECEnv):
         cat_pos = self.positions['cat']
         toy_pos = self.positions['toy']
         dummy_pos = self.positions['dummy']
-        return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1], dummy_pos[0], dummy_pos[1]], dtype=np.float32)
+
+        if agent == "cat":
+            return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1], dummy_pos[0], dummy_pos[1]], dtype=np.float32)
+        elif agent == "toy":
+            return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1]], dtype=np.float32)
+        elif agent == "dummy":
+            # dummyは使う必要はない
+            return np.array([dummy_pos[0], dummy_pos[1]], dtype=np.float32)
 
     def reset(self, seed=None, options=None):
         self.agents = self.possible_agents[:]
