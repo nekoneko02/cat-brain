@@ -45,7 +45,7 @@ class CatToyEnv(AECEnv):
             for agent in self.possible_agents
         }
 
-        self.positions = {"cat": (0, 0), "dummy": (0, 0), "toy": (0, 0)}
+        self.positions = {agent: [0, 0] for agent in self.agents}
         self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
         self.rewards = {agent: 0.0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
@@ -73,9 +73,8 @@ class CatToyEnv(AECEnv):
 
         distance = 0
         while distance < 100: # 100以上の距離になるように初期値設定
-            self.positions["cat"] = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
-            self.positions["toy"] = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
-            self.positions["dummy"] = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
+            for agent in self.agents:
+                self.positions[agent] = [random.randint(0, self.width - 1), random.randint(0, self.height - 1)]
             distance = self.distance("cat", "toy")
 
         return self.observe(self.agent_selection)
@@ -98,10 +97,11 @@ class CatToyEnv(AECEnv):
         x, y = self.positions[agent]
         new_x, new_y = x + dx, y + dy
 
-        if 0 <= new_x < self.width and 0 <= new_y < self.height:
-            self.positions[agent] = (new_x, new_y)
-        else:
-            self.rewards[agent] += -1.0  # 壁にぶつかった場合のペナルティ
+        # 画面外に出ないようにする
+        if 0 <= new_x < self.width:
+            self.positions[agent][0] = new_x
+        if 0 <= new_y < self.height:
+            self.positions[agent][1] = new_y
 
         collision = self._is_collision()
         if collision:
@@ -115,7 +115,7 @@ class CatToyEnv(AECEnv):
         else:
             distance = self.distance("cat", "toy")
             self.rewards["cat"] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
-            self.rewards["toy"] += 0.5 if distance < prev_distance else 1 # 生存報酬. 遠ざかる方がプラス
+            self.rewards["toy"] += 1 if distance > prev_distance else 0.5 # 生存報酬. 遠ざかる方がプラス
             # ✅ 報酬加算
             self._cumulative_rewards[agent] += self.rewards[agent]
 

@@ -14,6 +14,7 @@ async function loadModel() {
 let actions = [];
 let observation_space = {};
 let environment = {};
+let hidden_state = null;
 
 async function loadConfig() {
   const response = await fetch('config/common.json'); // JSONファイルのパス
@@ -22,23 +23,6 @@ async function loadConfig() {
   observation_space = data.observation_space;
   environment = data.environment;
   model_config = data.model;
-}
-
-async function predictAction(cat, toy, z_support) {
-  if (!session) throw new Error('Model not loaded yet!');
-
-  const input = new Float32Array([
-    cat.x, cat.y,
-    toy.x, toy.y,
-    400,300
-  ]);
-
-  const tensor = new ort.Tensor('float32', input, [1, 6]);
-  const results = await session.run({ obs: tensor }); // [1, action_size, num_atoms]
-  const output = sum(results.probabilities.data, z_support); // [action_size]
-  // 最大のQ値を持つ行動
-  const maxIdx = output.indexOf(Math.max(...output));
-  return maxIdx;
 }
 
 function linspace(v_min, v_max, num_atoms) {
@@ -69,10 +53,12 @@ class Cat extends Phaser.GameObjects.Sprite {
     super(scene, x, y, 'cat');
     this.setScale(scale);
     this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
+    this.hidden_state = new Float32Array(model_config.hidden_size).fill(0);
+    this.hidden_state = new ort.Tensor('float32', this.hidden_state, [1, 1, model_config.hidden_size]);
   }
 
   async move(toy) {
-    const action = await predictAction(this, toy, this.z_support);
+    const action = await this.predictAction(this, toy);
     const selectedAction = actions[action];
     if (selectedAction) {
       this.x += selectedAction.dx;
@@ -81,6 +67,23 @@ class Cat extends Phaser.GameObjects.Sprite {
   
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
     this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
+  }
+  async predictAction(cat, toy) {
+    if (!session) throw new Error('Model not loaded yet!');
+
+    const input = new Float32Array([
+      cat.x, cat.y,
+      toy.x, toy.y,
+      400,300
+    ]);
+
+    const tensor = new ort.Tensor('float32', input, [1, 1, 6]);
+    const results = await session.run({"obs": tensor, "hidden_state": this.hidden_state}); // [1, action_size, num_atoms]
+    //this.hidden_state = results.next_hidden_state; // [1, hidden_size]
+    const output = sum(results.probabilities.data, this.z_support); // [action_size]
+    // 最大のQ値を持つ行動
+    const maxIdx = output.indexOf(Math.max(...output));
+    return maxIdx;
   }
 }
 
