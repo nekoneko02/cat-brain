@@ -25,10 +25,18 @@
     ]
   },
   "observation_space": {
-    "low": 0,
-    "high": 800,
-    "shape": [6],
-    "dtype": "float32"
+    "cat": {
+      "description": "cat, toy, and dummy position",
+      "shape": [6]
+    },
+    "toy": {
+      "description": "cat, toy position",
+      "shape": [4]
+    },
+    "dummy": {
+      "description": "dummy",
+      "shape": [2]
+    }
   },
   "environment": {
     "width": 800,
