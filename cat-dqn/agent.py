@@ -50,7 +50,28 @@ class SequenceTensorDictPrioritizedReplayBuffer(TensorDictPrioritizedReplayBuffe
         info['index'] = indices
 
         # Calculate sequence start indices
-        start_indices = indices - (sequence_length - 1)
+tuple: (batch_data, info)
+        """
+        sequence_length = sequence_length or self.sequence_length
+        
+        # Ensure sequence_length doesn't exceed buffer size
+        max_sequence_length = min(sequence_length, len(self._storage))
+
+        # Get indices based on priority
+        indices, info = self._sampler.sample(self._storage, batch_size)
+        info['index'] = indices
+
+        # Calculate sequence start indices
+        start_indices = indices - (max_sequence_length - 1)
+        start_indices = start_indices.clamp(min=0)
+
+        # Collect sequences
+        indices = torch.arange(max_sequence_length).unsqueeze(0) + start_indices.unsqueeze(1)  # [batch_size, max_sequence_length]
+
+        batch_data = self._storage.get(indices.flatten())
+        batch_data = batch_data.view(batch_size, max_sequence_length, *batch_data.shape[1:])
+        # Transfer batch data to device
+        batch_data = batch_data.to(device)
         start_indices = start_indices.clamp(min=0)
 
         # Collect sequences
