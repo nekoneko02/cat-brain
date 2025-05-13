@@ -53,8 +53,6 @@ class Cat extends Phaser.GameObjects.Sprite {
     super(scene, x, y, 'cat');
     this.setScale(scale);
     this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
-    this.hidden_state = new Float32Array(model_config.hidden_size).fill(0);
-    this.hidden_state = new ort.Tensor('float32', this.hidden_state, [1, 1, model_config.hidden_size]);
   }
 
   async move(toy) {
@@ -78,8 +76,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     ]);
 
     const tensor = new ort.Tensor('float32', input, [1, 1, 6]);
-    const results = await session.run({"obs": tensor, "hidden_state": this.hidden_state}); // [1, action_size, num_atoms]
-    //this.hidden_state = results.next_hidden_state; // [1, hidden_size]
+    const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
     const output = sum(results.probabilities.data, this.z_support); // [action_size]
     // 最大のQ値を持つ行動
     const maxIdx = output.indexOf(Math.max(...output));
