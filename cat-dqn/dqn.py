@@ -31,7 +31,13 @@ class DQN(nn.Module):
         self.v_min = v_min
         self.v_max = v_max
         self.delta_z = (v_max - v_min) / (num_atoms - 1)
-        self.z_support = torch.linspace(self.v_min, self.v_max, self.num_atoms)
+self.v_min = v_min
+        self.v_max = v_max
+        self.delta_z = (v_max - v_min) / (num_atoms - 1)
+        self.register_buffer('z_support', None)
+        
+        # RNN layer (only used if network_type is 'rnn')
+        if network_type == "rnn":
         
         # RNN layer (only used if network_type is 'rnn')
         if network_type == "rnn":
