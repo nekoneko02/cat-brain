@@ -54,7 +54,50 @@ def train_dqn(agent_dict, env, num_iterations, num_episodes_per_iteration,
                             agent_dict[replay_agent].replay()
 
                 if done or env.step_count % 1000 == 0:
-                    print(f"{agent} with steps {env.step_count}, reward {total_reward - prev_total_reward[agent]:.2f}, action: {prev_action}, state is {obs}")
+import logging  # Import the logging module
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+                obs, total_reward, terminated, truncated, _ = env.last()
+                done = terminated or truncated
+
+                if prev_action[agent] is not None:
+                    # Store experience from previous action
+                    agent_dict[agent].store_experience(
+                        prev_obs[agent],         # s
+                        prev_action[agent],      # a
+                        total_reward - prev_total_reward[agent],  # r (reward from this step)
+                        obs,                     # s' (next state)
+                        float(terminated)        # done
+                    )
+                    # Perform replay at intervals
+                    if env.step_count % replay_interval == 0:
+                        for replay_agent in agent_dict.keys():
+                            agent_dict[replay_agent].replay()
+
+                if done or env.step_count % 1000 == 0:
+                    logging.info(f"{agent} with steps {env.step_count}, reward {total_reward - prev_total_reward[agent]:.2f}, action: {prev_action}, state is {obs}")
+
+                if done:
+                    action = None  # No action needed if agent is done
+                    total_rewards[agent] += total_reward
+                    steps += env.step_count
+                else:
+                    action = agent_dict[agent].act(obs)
+                    agent_dict[agent].reset_hidden_state()  # Reset noise after selecting action
+
+                env.step(action)
+
+                prev_action[agent] = action  # Update for next iteration
+                prev_total_reward[agent] = total_reward
+                prev_obs[agent] = obs
+
+        # Log output
+        if iteration % update_target_steps == 0:
+            logging.info(f"+++++++ Iteration {iteration}: " + ", ".join([f"{a}: {r / update_target_steps:.2f}" for a, r in total_rewards.items()]) + f", Steps: {steps / update_target_steps}")
+            total_rewards = {agent: 0.0 for agent in total_rewards.keys()}
+            steps = 0
 
                 if done:
                     action = None  # No action needed if agent is done
