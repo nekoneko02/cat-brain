@@ -240,7 +240,17 @@ class DQNAgent:
         """
         if self.network_type == "rnn":
             self.seq_obs.append(state)
-            state_tensor = torch.FloatTensor(list(self.seq_obs)).unsqueeze(0).to(device)
+"""
+        if self.network_type == "rnn":
+            self.seq_obs.append(state)
+            if not hasattr(self, 'state_tensor'):
+                self.state_tensor = torch.zeros(1, self.sequence_length, self.state_shape).to(device)
+            self.state_tensor = torch.roll(self.state_tensor, -1, dims=1)
+            self.state_tensor[0, -1] = torch.FloatTensor(state)
+            probabilities, self.hidden_state = self.model(self.state_tensor, self.hidden_state)
+        else:
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
+            probabilities, _ = self.model(state_tensor)
             probabilities, self.hidden_state = self.model(state_tensor, self.hidden_state)
         else:
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
