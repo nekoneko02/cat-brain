@@ -57,12 +57,12 @@ class DQNAgent:
 
     def store_experience(self, state, action, reward, next_state, done):
         self.memory.add(TensorDict({
-            'state': torch.FloatTensor(state),
-            'action': torch.LongTensor([action]),
-            'reward': torch.FloatTensor([reward]),
-            'next_state': torch.FloatTensor(next_state),
-            'done': torch.FloatTensor([done]),
-            'td_error': 1.0 # 初期の誤差は1に設定
+            'state': torch.tensor(state, dtype=torch.float32, device=self.device),
+            'action': torch.tensor([action], dtype=torch.long, device=self.device),
+            'reward': torch.tensor([reward], dtype=torch.float32, device=self.device),
+            'next_state': torch.tensor(next_state, dtype=torch.float32, device=self.device),
+            'done': torch.tensor([done], dtype=torch.float32, device=self.device),
+            'td_error': torch.tensor(1.0, dtype=torch.float32, device=self.device)
         }))
 
     def act(self, state):
@@ -74,9 +74,11 @@ class DQNAgent:
         else:
             input = state
         input = torch.FloatTensor(input).unsqueeze(0).to(self.device)# バッチ次元を追加
-        probabilities = self.model(input)  # [batch_size, output_dim, num_atoms]
-        # 各アクションごとに期待Q値を計算
-        q_values = torch.sum(probabilities * self.model.get_support(), dim=-1)  # [batch_size, output_dim]
+
+        with torch.no_grad():
+            probabilities = self.model(input)  # [batch_size, output_dim, num_atoms]
+            q_values = torch.sum(probabilities * self.model.get_support(), dim=-1)  # [batch_size, output_dim]
+        
         return torch.argmax(q_values).item()  # 最大Q値に基づいて行動を選択
 
     def reset_hidden_state(self):
@@ -90,11 +92,14 @@ class DQNAgent:
         rewards = batch['reward'].squeeze()
         next_states = batch['next_state']
         dones = batch['done'].squeeze()
+
         if self.has_rnn:
-            actions = actions[:, -1]                    # [batch_size, sequence_length]  -> [batch_size] (最後の一つだけ利用する)
+            actions = actions[:, -1] # [batch_size, sequence_length]  -> [batch_size] (最後の一つだけ利用する)
             rewards = rewards[:, -1]
             dones = dones[:, -1]
+        
         return states, actions, rewards, next_states, dones, info
+    
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
@@ -103,16 +108,14 @@ class DQNAgent:
         indices, weights = info['index'], info['_weight']
         weights = torch.FloatTensor(weights).to(self.device)  # Tensorに変換
 
-        # 現在の分布の取得
         probabilities = self.model(states)  # [batch_size, num_actions, num_atoms], hidden_state
-        batch_size, num_actions, num_atoms = probabilities.shape
+        with torch.no_grad():
+            next_probabilities = self.target_model(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
 
+        batch_size = probabilities.shape[0]
         batch_indices = torch.arange(batch_size, device=self.device)
         # 選択したアクションの分布を取得
         selected_probs = probabilities[batch_indices, actions] # [batch_size, num_atoms]
-
-        # 次状態の分布の取得
-        next_probabilities = self.target_model(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
 
         # 次状態の期待Q値の計算
         next_q_values = torch.sum(next_probabilities * self.model.get_support(), dim=-1)  # [batch_size, num_actions]
@@ -173,19 +176,18 @@ class DQNAgent:
         l = l.clamp(0, num_atoms - 1)
         u = u.clamp(0, num_atoms - 1)
 
-        # 分布の割り当て
-        offset = torch.linspace(0, (batch_size - 1) * num_atoms, batch_size, device=self.device).long().unsqueeze(1)
+        offset = torch.arange(batch_size, device=self.device) * num_atoms
+        offset = offset.unsqueeze(1)
 
-        # 出力分布を初期化
+        # 分布の初期化
         projected_distribution = torch.zeros((batch_size, num_atoms), device=self.device)
-        
-        # 下のインデックスに対して割り当て
-        projected_distribution.view(-1).index_add_(
+
+        # scatter_add_ による分布更新
+        projected_distribution.view(-1).scatter_add_(
             0, (l + offset).view(-1), (next_dist * (u.float() - b)).view(-1)
         )
 
-        # 上のインデックスに対して割り当て
-        projected_distribution.view(-1).index_add_(
+        projected_distribution.view(-1).scatter_add_(
             0, (u + offset).view(-1), (next_dist * (b - l.float())).view(-1)
         )
 

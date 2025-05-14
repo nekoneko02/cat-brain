@@ -2,30 +2,44 @@
   "description": "PythonとJavaScriptの両方で使用する設定ファイル",
   "actions":{
     "cat": [
-      { "id": 0, "name": "up", "dx": 0, "dy": -3 },
-      { "id": 1, "name": "down", "dx": 0, "dy": 3 },
-      { "id": 2, "name": "left", "dx": -3, "dy": 0 },
-      { "id": 3, "name": "right", "dx": 3, "dy": 0 },
-      { "id": 4, "name": "left-down", "dx": -2, "dy": 2 },
-      { "id": 5, "name": "left-up", "dx": -2, "dy": -2 },
-      { "id": 6, "name": "right-down", "dx": 2, "dy": 2 },
-      { "id": 7, "name": "right-up", "dx": 2, "dy": -2 }
+      { "id": 0, "name": "stop", "dx": 0, "dy": 0, "is_found": false },
+      { "id": 1, "name": "slow-up", "dx": 0, "dy": -1, "is_found": false },
+      { "id": 2, "name": "slow-down", "dx": 0, "dy": 1, "is_found": false },
+      { "id": 3, "name": "slow-left", "dx": -1, "dy": 0, "is_found": false },
+      { "id": 4, "name": "slow-right", "dx": 1, "dy": 0, "is_found": false },
+      { "id": 5, "name": "up", "dx": 0, "dy": -3, "is_found": true },
+      { "id": 6, "name": "down", "dx": 0, "dy": 3, "is_found": true },
+      { "id": 7, "name": "left", "dx": -3, "dy": 0, "is_found": true },
+      { "id": 8, "name": "right", "dx": 3, "dy": 0, "is_found": true },
+      { "id": 9, "name": "left-down", "dx": -2, "dy": 2, "is_found": true },
+      { "id": 10, "name": "left-up", "dx": -2, "dy": -2, "is_found": true },
+      { "id": 11, "name": "right-down", "dx": 2, "dy": 2, "is_found": true },
+      { "id": 12, "name": "right-up", "dx": 2, "dy": -2, "is_found": true }
     ],
     "pre-cat": [
-      { "id": 0, "name": "up", "dx": 0, "dy": -3 },
-      { "id": 1, "name": "down", "dx": 0, "dy": 3 },
-      { "id": 2, "name": "left", "dx": -3, "dy": 0 },
-      { "id": 3, "name": "right", "dx": 3, "dy": 0 },
-      { "id": 4, "name": "left-down", "dx": -2, "dy": 2 },
-      { "id": 5, "name": "left-up", "dx": -2, "dy": -2 },
-      { "id": 6, "name": "right-down", "dx": 2, "dy": 2 },
-      { "id": 7, "name": "right-up", "dx": 2, "dy": -2 }
+      { "id": 0, "name": "stop", "dx": 0, "dy": 0, "is_found": false },
+      { "id": 1, "name": "slow-up", "dx": 0, "dy": -1, "is_found": false },
+      { "id": 2, "name": "slow-down", "dx": 0, "dy": 1, "is_found": false },
+      { "id": 3, "name": "slow-left", "dx": -1, "dy": 0, "is_found": false },
+      { "id": 4, "name": "slow-right", "dx": 1, "dy": 0, "is_found": false },
+      { "id": 5, "name": "up", "dx": 0, "dy": -3, "is_found": true },
+      { "id": 6, "name": "down", "dx": 0, "dy": 3, "is_found": true },
+      { "id": 7, "name": "left", "dx": -3, "dy": 0, "is_found": true },
+      { "id": 8, "name": "right", "dx": 3, "dy": 0, "is_found": true },
+      { "id": 9, "name": "left-down", "dx": -2, "dy": 2, "is_found": true },
+      { "id": 10, "name": "left-up", "dx": -2, "dy": -2, "is_found": true },
+      { "id": 11, "name": "right-down", "dx": 2, "dy": 2, "is_found": true },
+      { "id": 12, "name": "right-up", "dx": 2, "dy": -2, "is_found": true }
     ],
     "toy": [
-      { "id": 0, "name": "up", "dx": 0, "dy": -1 },
-      { "id": 1, "name": "down", "dx": 0, "dy": 1 },
-      { "id": 2, "name": "left", "dx": -1, "dy": 0 },
-      { "id": 3, "name": "right", "dx": 1, "dy": 0 }
+      { "id": 0, "name": "up", "dx": 0, "dy": -1, "can_eatting": true },
+      { "id": 1, "name": "down", "dx": 0, "dy": 1, "can_eatting": true },
+      { "id": 2, "name": "left", "dx": -1, "dy": 0, "can_eatting": true },
+      { "id": 3, "name": "right", "dx": 1, "dy": 0, "can_eatting": true },
+      { "id": 4, "name": "up", "dx": 0, "dy": -2.5, "can_eatting": false },
+      { "id": 5, "name": "down", "dx": 0, "dy": 2.5, "can_eatting": false },
+      { "id": 6, "name": "left", "dx": -2.5, "dy": 0, "can_eatting": false },
+      { "id": 7, "name": "right", "dx": 2.5, "dy": 0, "can_eatting": false }
     ],
     "toy_speed_for_game": 2.5,
     "dummy": [
@@ -45,8 +59,8 @@
       "shape": [4]
     },
     "toy": {
-      "description": "cat, toy position",
-      "shape": [4]
+      "description": "cat, toy position and grass info",
+      "shape": [8]
     },
     "dummy": {
       "description": "dummy",
@@ -56,10 +70,24 @@
   "environment": {
     "width": 800,
     "height": 600,
-    "cat_width": 30,
-    "cat_height": 30,
-    "toy_width": 20,
-    "toy_height": 20
+    "agent_size": {
+      "cat": {
+        "width": 30,
+        "height": 30
+      },
+      "pre-cat": {
+        "width": 30,
+        "height": 30
+      },
+      "toy": {
+        "width": 20,
+        "height": 20
+      },
+      "dummy": {
+        "width": 15,
+        "height": 15
+      }
+    }
   },
   "model": {
     "v_min": -10,
