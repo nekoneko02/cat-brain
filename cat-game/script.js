@@ -56,7 +56,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     this.setScale(scale);
     this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
     this.seq_obs = []
-    for(let seq_i=0; seq_i < 5; seq_i++){
+    for(let seq_i=0; seq_i < 10; seq_i++){
       this.seq_obs[seq_i] = init_input;
     }
   }
@@ -164,11 +164,11 @@ class GameScene extends Phaser.Scene {
   }
   setImageSize(key, type, data){
     if(key === 'cat'){
-        this.catImageSize.width = data.width;
-        this.catImageSize.height = data.height;
+      this.catImageSize.width = data.width;
+      this.catImageSize.height = data.height;
     } else if(key === 'toy'){
-        this.toyImageSize.width = data.width;
-        this.toyImageSize.height = data.height;
+      this.toyImageSize.width = data.width;
+      this.toyImageSize.height = data.height;
     }
     this.isImageLoaded = true;
   }
@@ -181,7 +181,7 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     if(!this.isImageLoaded){
-        return;
+      return;
     }
     //スケールを調整
     const catScale = this.calculateScale(this.catImageSize.width, this.catImageSize.height)*0.2;
@@ -193,7 +193,7 @@ class GameScene extends Phaser.Scene {
     ];
     this.cat = new Cat(this, init[0], init[1], init, catScale);
     this.toy = new Toy(this, init[2], init[3], toyScale);
-    
+
     this.add.existing(this.cat);
     this.add.existing(this.toy);
 
@@ -222,8 +222,8 @@ class GameScene extends Phaser.Scene {
       this.gameOverText.setVisible(true);
     }
   }
-  
-  
+
+
   calculateScale(imageWidth, imageHeight){
     const gameWidth = this.game.config.width;
     const gameHeight = this.game.config.height;
