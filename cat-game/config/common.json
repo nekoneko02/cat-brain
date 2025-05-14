@@ -17,6 +17,7 @@
       { "id": 2, "name": "left", "dx": -1, "dy": 0 },
       { "id": 3, "name": "right", "dx": 1, "dy": 0 }
     ],
+    "toy_speed_for_game": 2.5,
     "dummy": [
       { "id": 0, "name": "up", "dx": 0, "dy": -1 },
       { "id": 1, "name": "down", "dx": 0, "dy": 1 },

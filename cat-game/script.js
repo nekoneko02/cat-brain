@@ -20,6 +20,8 @@ async function loadConfig() {
   const response = await fetch('config/common.json'); // JSONファイルのパス
   const data = await response.json();
   actions = data.actions.cat;
+  actions_toy = data.actions.toy;
+  toy_speed = data.actions.toy_speed_for_game;
   observation_space = data.observation_space;
   environment = data.environment;
   model_config = data.model;
@@ -49,10 +51,14 @@ function sum(probabilities, z_support) {
 
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
-  constructor(scene, x, y, scale) {
+  constructor(scene, x, y, init_input, scale) {
     super(scene, x, y, 'cat');
     this.setScale(scale);
     this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
+    this.seq_obs = []
+    for(let seq_i=0; seq_i < 5; seq_i++){
+      this.seq_obs[seq_i] = init_input;
+    }
   }
 
   async move(toy) {
@@ -69,13 +75,15 @@ class Cat extends Phaser.GameObjects.Sprite {
   async predictAction(cat, toy) {
     if (!session) throw new Error('Model not loaded yet!');
 
-    const input = new Float32Array([
+    const input = [
       cat.x, cat.y,
       toy.x, toy.y,
-      400,300
-    ]);
-
-    const tensor = new ort.Tensor('float32', input, [1, 1, 6]);
+      40,30
+    ];
+    this.seq_obs.unshift(input)
+    this.seq_obs.pop()
+    const input_sequence = new Float32Array(this.seq_obs.flat())
+    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
     const output = sum(results.probabilities.data, this.z_support); // [action_size]
     // 最大のQ値を持つ行動
@@ -89,33 +97,53 @@ class Cat extends Phaser.GameObjects.Sprite {
 class Toy extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, scale) {
     super(scene, x, y, 'toy');
-    this.isDragging = false;
-    this.offsetX = 0; // ドラッグ開始時のねこじゃらしとマウスのx座標の差を保持
-    this.offsetY = 0; 
-
-    this.setInteractive();
-    // 画像の縮尺
     this.setScale(scale);
+    this.cursors = scene.input.keyboard.createCursorKeys();  // 矢印キー入力
+  }
 
-    this.on('pointerdown', (pointer) => {
-      this.isDragging = true;
-      this.offsetX = pointer.x - this.x; // マウスとねこじゃらしの座標の差を計算
-      this.offsetY = pointer.y - this.y; 
-    });
+  update() {
+    if (this.cursors.left.isDown) {
+      this.move('left');
+    }
+    if (this.cursors.right.isDown) {
+      this.move('right');
+    }
+    if (this.cursors.up.isDown) {
+      this.move('up');
+    }
+    if (this.cursors.down.isDown) {
+      this.move('down');
+    }
+    // ボタン操作
+    const direction = this.scene.activeDirection;
+    if (direction) {
+      this.move(direction);
+    }
+  }
 
-    this.on('pointermove', (pointer) => {
-      if (this.isDragging) {
-        this.x = pointer.x - this.offsetX; // 差を考慮してねこじゃらしの位置を更新
-        this.y = pointer.y - this.offsetY;
-        // 境界チェック
-        this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
-        this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
-      }
-    });
+  move(direction) {
+    switch (direction) {
+      case 'up':
+        this.x += actions_toy[0].dx * toy_speed;
+        this.y += actions_toy[0].dy * toy_speed;
+        break;
+      case 'down':
+        this.x += actions_toy[1].dx * toy_speed;
+        this.y += actions_toy[1].dy * toy_speed;
+        break;
+      case 'left':
+        this.x += actions_toy[2].dx * toy_speed;
+        this.y += actions_toy[2].dy * toy_speed;
+        break;
+      case 'right':
+        this.x += actions_toy[3].dx * toy_speed;
+        this.y += actions_toy[3].dy * toy_speed;
+        break;
+    }
 
-    this.on('pointerup', () => {
-      this.isDragging = false;
-    });
+    // 境界チェック
+    this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
+    this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
   }
 }
 
@@ -158,8 +186,13 @@ class GameScene extends Phaser.Scene {
     //スケールを調整
     const catScale = this.calculateScale(this.catImageSize.width, this.catImageSize.height)*0.2;
     const toyScale = this.calculateScale(this.toyImageSize.width, this.toyImageSize.height);
-    this.cat = new Cat(this, 400, 400, catScale);
-    this.toy = new Toy(this, 100, 100, toyScale);
+    const init = [
+      400, 400,
+      100, 100,
+      400, 300
+    ];
+    this.cat = new Cat(this, init[0], init[1], init, catScale);
+    this.toy = new Toy(this, init[2], init[3], toyScale);
     
     this.add.existing(this.cat);
     this.add.existing(this.toy);
@@ -172,11 +205,13 @@ class GameScene extends Phaser.Scene {
     });
     this.gameOverText.setOrigin(0.5);
     this.gameOverText.setVisible(false); // ゲームオーバーのテキストを非表示にする
-  }
+    this.createControlButtons() 
+    }
 
   update() {
-    if (this.cat && this.toy && !this.gameOver) {
+    if (!this.gameOver) {
       this.cat.move(this.toy);
+      this.toy.update();  // Toyの移動処理を呼び出す
     }
     // 衝突判定（矩形の重なりをチェック）
     const catBounds = this.cat.getBounds();
@@ -200,7 +235,51 @@ class GameScene extends Phaser.Scene {
     // 画像のアスペクト比を維持しつつ、ゲーム画面に収まるようにスケールを計算
     return Math.min(scaleX, scaleY, 0.25);
   }
+
+  createControlButtons() {
+    const buttonSize = 50;
+    const buttonOffset = 10;
+    const baseX = 650;
+    const baseY = 450;
+
+    const directions = ['up', 'down', 'left', 'right'];
+    const buttonPositions = {
+      up: { x: baseX, y: baseY - buttonSize - buttonOffset },
+      down: { x: baseX, y: baseY + buttonSize + buttonOffset },
+      left: { x: baseX - buttonSize - buttonOffset, y: baseY },
+      right: { x: baseX + buttonSize + buttonOffset, y: baseY }
+    };
+
+    this.activeDirection = null;
+
+    directions.forEach((direction) => {
+      const { x, y } = buttonPositions[direction];
+
+      const button = this.add.rectangle(x, y, buttonSize, buttonSize, 0x00ff00)
+        .setInteractive()
+        .on('pointerdown', () => {
+          this.activeDirection = direction;
+        })
+        .on('pointerup', () => {
+          this.activeDirection = null;
+        })
+        .on('pointerout', () => {
+          this.activeDirection = null;
+        });
+
+      const label = {
+        up: '↑',
+        down: '↓',
+        left: '←',
+        right: '→'
+      }[direction];
+
+      this.add.text(x, y, label, { fontSize: '24px', color: '#000' }).setOrigin(0.5);
+    });
+  }
+
 }
+
 
 // ゲームを初期化する関数
 async function initializeGame() {
