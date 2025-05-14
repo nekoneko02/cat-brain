@@ -174,7 +174,7 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.text(400, 60, 'ねこから逃げろ', {
+    this.add.text(400, 60, 'ねこと戯れよう！', {
       fontSize: '48px',
       fill: '#f00',
       fontFamily: '"Noto Sans JP", "Meiryo", sans-serif'
@@ -198,7 +198,7 @@ class GameScene extends Phaser.Scene {
     this.add.existing(this.toy);
 
     this.gameOver = false;
-    this.gameOverText = this.add.text(400, 300, 'ゲームオーバー', {
+    this.gameOverText = this.add.text(400, 300, '遊んでくれた！良かったね！', {
       fontSize: '48px',
       fill: '#f00',
       fontFamily: '"Noto Sans JP", "Meiryo", sans-serif'
