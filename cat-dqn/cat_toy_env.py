@@ -58,6 +58,7 @@ class CatToyEnv(AECEnv):
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
         self.glow_grass = 0.01
         self.cat_obs_by_toy = [0,0] # toyから見たcatの位置
+        self.prev_distance = self.max_distance
 
     def observe(self, agent):
         cat_pos = self.positions[self.chaser]
@@ -112,6 +113,7 @@ class CatToyEnv(AECEnv):
             distance = self.distance(self.chaser, self.runner)
 
         self.cat_obs_by_toy = self.positions[self.chaser]
+        self.prev_distance = self.max_distance
 
         return self.observe(self.agent_selection)
 
@@ -123,11 +125,63 @@ class CatToyEnv(AECEnv):
             return
 
         if agent == self.dummy:
-            # dummyはランダムに動く
-            action = random.choice(range(self.action_spaces[self.dummy].n))
+            self._step_dummy()
+        elif agent == self.chaser:
+            self._step_chaser(action)
+        elif agent == self.runner:
+            self._step_runner(action)
 
-        prev_distance = self.distance(self.chaser, self.runner)
+        # ✅ 報酬加算
+        self._cumulative_rewards[agent] += self.rewards[agent]
 
+        if self.step_count >= self.max_steps:
+            self.truncations = {a: True for a in self.agents}
+        self.step_count += 1
+
+        # ✅ 次のエージェントへ切り替え
+        self.agent_selection = self._agent_selector.next()
+        self._clear_rewards()
+
+        if self.render_mode == "human":
+            self.render()
+
+    def _step_dummy(self):
+        # dummyはランダムに動く
+        action = random.choice(range(self.action_spaces[self.dummy].n))
+        self._move_agent(self.dummy, action)
+    
+    def _step_chaser(self, action):
+        dx, dy = self._move_agent(self.chaser, action)
+        selected_action = self.actions[self.chaser][action]
+
+        toy_collision, distance = self._is_collision(self.chaser, self.runner, return_distance = True)
+        
+        if selected_action["is_found"] or distance < 100:
+            # 動きすぎるか近づきすぎるとtoyに見つかる
+            self.cat_obs_by_toy = self.positions[self.chaser]
+        
+        if toy_collision:
+            print("finish by", self.chaser)
+            self.terminations = {a: True for a in self.agents}
+            self.rewards[self.chaser] += 10.0
+        elif self.dummy and self._is_collision(self.chaser, self.dummy):
+            print("dummy finish by", self.chaser)
+            self.terminations = {a: True for a in self.agents}
+            self.rewards[self.chaser] += -10.0
+        else:
+            self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10 # 動いた分だけ疲労する
+            self.rewards[self.chaser] += -0.1 if distance < self.prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
+        self.prev_distance = distance
+
+    def _step_runner(self, action):
+        self._move_agent(self.runner, action)
+        x, y = self.positions[self.runner][0], self.positions[self.runner][1]
+        self.rewards[self.runner] += self.grass[x, y] # 生存報酬. 食べた草の分だけ報酬を得る
+        self.grass[x, y] = 0
+        self.grass += self.glow_grass
+        self.grass = np.clip(self.grass, 0, 1)
+
+    def _move_agent(self, agent, action):
         selected_action = self.actions[agent][action]
         dx, dy = selected_action["dx"], selected_action["dy"]
         x, y = self.positions[agent]
@@ -138,59 +192,7 @@ class CatToyEnv(AECEnv):
             self.positions[agent][0] = new_x
         if 0 <= new_y < self.height:
             self.positions[agent][1] = new_y
-
-        if agent == self.chaser:
-            # catは疲れる
-            self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10
-            if selected_action["is_found"]:
-                self.cat_obs_by_toy = self.positions[self.chaser] # toyに見つかる
-
-        toy_collision = self._is_collision(self.chaser, self.runner)
-        if self.dummy:
-            dum_collision = self._is_collision(self.chaser, self.dummy)
-        else:
-            dum_collision = False # dummyがいないので、衝突判定なし
-        if toy_collision:
-            print("finish by", agent)
-            self.terminations = {a: True for a in self.agents}
-            self.rewards[self.chaser] += 10.0
-            self.rewards[self.runner] += -10.0
-            # ✅ 報酬加算
-            self._cumulative_rewards[self.chaser] += self.rewards[self.chaser]
-            self._cumulative_rewards[self.runner] += self.rewards[self.runner]
-        elif dum_collision:
-            print("dummy finish by", agent)
-            self.terminations = {a: True for a in self.agents}
-            self.rewards[self.chaser] += -10.0
-            self.rewards[self.runner] += 0
-            # ✅ 報酬加算
-            self._cumulative_rewards[self.chaser] += self.rewards[self.chaser]
-            self._cumulative_rewards[self.runner] += self.rewards[self.runner]
-        else:
-            distance = self.distance(self.chaser, self.runner)
-            if distance < 100:
-                self.cat_obs_by_toy = self.positions[self.chaser] # 近づくとtoyに見つかる
-            if agent == self.chaser:
-                self.rewards[self.chaser] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
-            elif agent == self.runner:
-                x, y = self.positions[agent][0], self.positions[agent][1]
-                self.rewards[self.runner] += self.grass[x, y] # 生存報酬. 食べた草の分だけ報酬を得る
-                self.grass[x, y] = 0
-                self.grass += self.glow_grass
-                self.grass = np.clip(self.grass, 0, 1)
-
-            # ✅ 報酬加算
-            self._cumulative_rewards[agent] += self.rewards[agent]
-
-        if self.step_count >= self.max_steps:
-            self.truncations = {a: True for a in self.agents}
-        self.step_count += 1
-
-        # ✅ 次のエージェントへ切り替え
-        self.agent_selection = self._agent_selector.next()
-        self._clear_rewards()
-        if self.render_mode == "human":
-            self.render()
+        return dx, dy
 
     def distance(self, agent1, agent2):
         agent1_x, agent1_y = self.positions[agent1]
@@ -198,15 +200,20 @@ class CatToyEnv(AECEnv):
         distance = ((agent1_x - agent2_x) ** 2 + (agent1_y - agent2_y) ** 2) ** 0.5
         return distance
     
-    def _is_collision(self, agent1, agent2):
+    def _is_collision(self, agent1, agent2, return_distance = False):
         distance = self.distance(agent1, agent2)
         # CatとToyのサイズを考慮して衝突判定を行う
         agent1_size = (self.agent_size[agent1]['width'] + self.agent_size[agent1]['height']) / 2
         agent2_size = (self.agent_size[agent2]['width'] + self.agent_size[agent2]['height']) / 2
-        if distance < (agent1_size + agent2_size) / 2:
-            return True
         
-        return False
+        if distance < (agent1_size + agent2_size) / 2:
+            result = True
+        else:
+            result = False
+
+        if return_distance:
+            return result, distance
+        return result
     
     def render(self):
         if self.step_count % 30 != 0:
