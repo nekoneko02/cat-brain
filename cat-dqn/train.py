@@ -1,6 +1,6 @@
 import numpy as np
 
-def train_dqn(agent_dict, env, config):
+def train_dqn(agent_dict, train_agents, env, config):
     num_iterations = config["num_iterations"]
     num_episodes_per_iteration = config["num_episodes_per_iteration"]
     replay_interval = config["replay_interval"]
@@ -12,9 +12,9 @@ def train_dqn(agent_dict, env, config):
     for iteration in range(num_iterations):
         for episode in range(num_episodes_per_iteration):
             obs = env.reset()
-            prev_obs = {agent: obs for agent in agent_dict.keys()} # 前回の観測を保存
-            prev_action = {agent: None for agent in agent_dict.keys()}
-            prev_total_reward = {agent: 0.0 for agent in agent_dict.keys()}
+            prev_obs = {agent: obs for agent in train_agents} # 前回の観測を保存
+            prev_action = {agent: None for agent in train_agents}
+            prev_total_reward = {agent: 0.0 for agent in train_agents}
 
             for agent in env.agent_iter():
                 if agent == "dummy":
@@ -35,8 +35,7 @@ def train_dqn(agent_dict, env, config):
                     agent_dict[agent].reset_hidden_state() # 行動を選択するたびにノイズをリセット
 
                 env.step(action)
-
-                if prev_action[agent] is not None:
+                if (agent in train_agents) and (prev_action[agent] is not None):
                     # 前回行動の結果が今回のループで得られたので、ここで保存できる
                     agent_dict[agent].store_experience(
                         prev_obs[agent],         # s
@@ -47,7 +46,7 @@ def train_dqn(agent_dict, env, config):
                     )
                     # ここでreplayを行う
                     if env.step_count % replay_interval == 0:
-                        for replay_agent in agent_dict.keys():
+                        for replay_agent in train_agents:
                             agent_dict[replay_agent].replay(batch_size)
 
                 if done or env.step_count % 1000 == 0:
