@@ -14,7 +14,7 @@ def train_dqn(agent_dict, train_agents, env, config):
             obs = env.reset()
             prev_obs = {agent: obs for agent in train_agents} # 前回の観測を保存
             prev_action = {agent: None for agent in train_agents}
-            prev_total_reward = {agent: 0.0 for agent in train_agents}
+            prev_total_reward = {agent: 0.0 for agent in env.agents} # printでも使うため、env.agentsに対して取得
 
             for agent in env.agent_iter():
                 if agent == "dummy":
@@ -29,7 +29,7 @@ def train_dqn(agent_dict, train_agents, env, config):
                 if done:
                     action = None  # No action needed if agent is done
                     total_rewards[agent] += total_reward
-                    steps += env.step_count
+                    steps += env.get_step_count()
                 else:
                     action = agent_dict[agent].act(obs)
                     agent_dict[agent].reset_hidden_state() # 行動を選択するたびにノイズをリセット
@@ -45,12 +45,11 @@ def train_dqn(agent_dict, train_agents, env, config):
                         float(terminated)              # done
                     )
                     # ここでreplayを行う
-                    if env.step_count % replay_interval == 0:
-                        for replay_agent in train_agents:
-                            agent_dict[replay_agent].replay(batch_size)
+                    if env.get_step_count() % replay_interval == 0:
+                        agent_dict[agent].replay(batch_size)
 
-                if done or env.step_count % 1000 == 0:
-                    print(f"{agent} with steps {env.step_count}, reward {total_reward - prev_total_reward[agent]: 2f}, action: {prev_action}, state is {obs}")
+                if done or env.get_step_count() % 1000 == 0:
+                    print(f"{agent} with steps {env.get_step_count()}, reward {total_reward - prev_total_reward[agent]: 2f}, action: {prev_action}, state is {obs}")
 
                 prev_action[agent] = action  # 次の行動を更新
                 prev_total_reward[agent] = total_reward # 次の報酬を更新

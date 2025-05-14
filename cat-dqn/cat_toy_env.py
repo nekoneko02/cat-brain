@@ -54,7 +54,7 @@ class CatToyEnv(AECEnv):
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
-        self.step_count = 0
+        self.all_step_count = 0
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
         self.glow_grass = 0.01
         self.cat_obs_by_toy = [0,0] # toyから見たcatの位置
@@ -74,7 +74,15 @@ class CatToyEnv(AECEnv):
         elif agent == self.chaser:
             return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1]], dtype=np.float32)
         elif agent == self.runner:
-            return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1]], dtype=np.float32)
+            x, y = int(toy_pos[0]), int(toy_pos[1])
+            return np.array([
+                self.cat_obs_by_toy[0], self.cat_obs_by_toy[1],
+                toy_pos[0]            , toy_pos[1],
+                self.grass[x - 1, y] if x-1 >= 0          else 0,
+                self.grass[x + 1, y] if x+1 < self.width  else 0,
+                self.grass[x, y - 1] if y-1 >= 0          else 0,
+                self.grass[x, y + 1] if y+1 < self.height else 0
+            ], dtype=np.float32)
         elif agent == self.dummy:
             # dummyは使う必要はない
             dummy_pos = self.positions[self.dummy]
@@ -104,7 +112,7 @@ class CatToyEnv(AECEnv):
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
         self.infos = {a: {} for a in self.agents}
-        self.step_count = 0
+        self.all_step_count = 0
 
         distance = 0
         while distance < 100: # 100以上の距離になるように初期値設定
@@ -134,9 +142,9 @@ class CatToyEnv(AECEnv):
         # ✅ 報酬加算
         self._cumulative_rewards[agent] += self.rewards[agent]
 
-        if self.step_count >= self.max_steps:
+        if self.get_step_count() >= self.max_steps:
             self.truncations = {a: True for a in self.agents}
-        self.step_count += 1
+        self.all_step_count += 1
 
         # ✅ 次のエージェントへ切り替え
         self.agent_selection = self._agent_selector.next()
@@ -144,6 +152,8 @@ class CatToyEnv(AECEnv):
 
         if self.render_mode == "human":
             self.render()
+    def get_step_count(self):
+        return self.all_step_count // len(self.possible_agents)
 
     def _step_dummy(self):
         # dummyはランダムに動く
@@ -174,10 +184,13 @@ class CatToyEnv(AECEnv):
         self.prev_distance = distance
 
     def _step_runner(self, action):
+        selected_action = self.actions[self.runner][action]
         self._move_agent(self.runner, action)
         x, y = self.positions[self.runner][0], self.positions[self.runner][1]
-        self.rewards[self.runner] += self.grass[x, y] # 生存報酬. 食べた草の分だけ報酬を得る
-        self.grass[x, y] = 0
+        self.rewards[self.runner] += 0.1 # 生存報酬.
+        if selected_action["can_eatting"]: # ゆっくり動く時だけ食べられる
+            self.rewards[self.runner] += self.grass[int(x), int(y)] # 食べた草の分だけ報酬を得る
+            self.grass[int(x), int(y)] = 0
         self.grass += self.glow_grass
         self.grass = np.clip(self.grass, 0, 1)
 
@@ -216,7 +229,7 @@ class CatToyEnv(AECEnv):
         return result
     
     def render(self):
-        if self.step_count % 30 != 0:
+        if self.get_step_count() % 30 != 0:
             return
         grid_size = 30  # 小さなグリッドに変更
         grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
@@ -245,12 +258,12 @@ class CatToyEnv(AECEnv):
         cat_x, cat_y = self.positions[self.chaser]
         toy_x, toy_y = self.positions[self.runner]
         if self.dummy:
-            print(f"agent: {self.agent_selection}, count: {self.step_count}, cat: {cat_x}, {cat_y}, toy: {toy_x}, {toy_y}, dummy: {dum_x}, {dum_y}")
+            print(f"agent: {self.agent_selection}, count: {self.get_step_count()}, cat: {cat_x}, {cat_y}, toy: {toy_x}, {toy_y}, dummy: {dum_x}, {dum_y}")
         else:
-            print(f"agent: {self.agent_selection}, count: {self.step_count}, cat: {cat_x}, {cat_y}, toy: {toy_x}, {toy_y}")
+            print(f"agent: {self.agent_selection}, count: {self.get_step_count()}, cat: {cat_x}, {cat_y}, toy: {toy_x}, {toy_y}")
         
         # フレーム間の遅延（1フレームごとの更新時間）
-        time.sleep(0.05)  # 0.5秒ごとに更新（調整可能）
+        time.sleep(0.01)  # 0.5秒ごとに更新（調整可能）
 
 
     def close(self):

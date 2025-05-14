@@ -32,10 +32,14 @@
       { "id": 12, "name": "right-up", "dx": 2, "dy": -2, "is_found": true }
     ],
     "toy": [
-      { "id": 0, "name": "up", "dx": 0, "dy": -1 },
-      { "id": 1, "name": "down", "dx": 0, "dy": 1 },
-      { "id": 2, "name": "left", "dx": -1, "dy": 0 },
-      { "id": 3, "name": "right", "dx": 1, "dy": 0 }
+      { "id": 0, "name": "up", "dx": 0, "dy": -1, "can_eatting": true },
+      { "id": 1, "name": "down", "dx": 0, "dy": 1, "can_eatting": true },
+      { "id": 2, "name": "left", "dx": -1, "dy": 0, "can_eatting": true },
+      { "id": 3, "name": "right", "dx": 1, "dy": 0, "can_eatting": true },
+      { "id": 4, "name": "up", "dx": 0, "dy": -2.5, "can_eatting": false },
+      { "id": 5, "name": "down", "dx": 0, "dy": 2.5, "can_eatting": false },
+      { "id": 6, "name": "left", "dx": -2.5, "dy": 0, "can_eatting": false },
+      { "id": 7, "name": "right", "dx": 2.5, "dy": 0, "can_eatting": false }
     ],
     "toy_speed_for_game": 2.5,
     "dummy": [

@@ -56,7 +56,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     this.setScale(scale);
     this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
     this.seq_obs = []
-    for(let seq_i=0; seq_i < 10; seq_i++){
+    for(let seq_i=0; seq_i < 50; seq_i++){
       this.seq_obs[seq_i] = init_input;
     }
   }
