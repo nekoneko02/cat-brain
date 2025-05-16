@@ -32,7 +32,17 @@ class DQN(nn.Module):
         # 価値関数
         self.value_stream = self._generate_streams(medium_dim, dqn_config["value_stream"])
         # アドバンテージ関数 A(s, a)
-        self.advantage_stream = self._generate_streams(medium_dim, dqn_config["advantage_stream"])
+        self.is_factorized = (
+          "speed_advantage_stream" in dqn_config and
+          "direction_advantage_stream" in dqn_config
+        )
+        if self.is_factorized:
+          self.speed_advantage_stream = self._generate_streams(medium_dim, dqn_config["speed_advantage_stream"])
+          self.direction_advantage_stream = self._generate_streams(medium_dim, dqn_config["direction_advantage_stream"])
+        else:
+          self.advantage_stream = self._generate_streams(medium_dim, dqn_config["advantage_stream"])
+
+        self.return_info = False
 
     def _generate_streams(self, input_dim, layer_configs):
         layers = []
@@ -43,8 +53,8 @@ class DQN(nn.Module):
         layers.append(rlnn.NoisyLinear(input_dim, layer_configs[-1]*self.num_atoms))
         return nn.Sequential(*layers)
     
-    def forward(self, x):
-        if self.has_rnn:
+    def forward(self, x, hidden_state=None):
+        if self.return_info:
           probability, _ = self._forward_with_hidden_state(x, None)
         else:
           probability = self._forward_with_hidden_state(x, None)
@@ -61,7 +71,16 @@ class DQN(nn.Module):
         # 特徴抽出
         x = self.feature(x)
         value = self.value_stream(x).view(-1, 1, self.num_atoms)
-        advantage = self.advantage_stream(x).view(batch_size, -1, self.num_atoms)
+        if self.is_factorized:
+          # ストリームごとにQ値を計算
+          speed_advantage = self.speed_advantage_stream(x).view(batch_size, -1, self.num_atoms)   # [batch_size, num_speeds, num_atoms]
+          direction_advantage = self.direction_advantage_stream(x).view(batch_size, -1, self.num_atoms) # [batch_size, num_directions, num_atoms]
+
+          # 外積計算
+          advantage = torch.einsum('bia,bja->bija', speed_advantage, direction_advantage)  # [batch_size, num_speeds, num_directions, num_atoms]
+          advantage = advantage.view(batch_size, -1, self.num_atoms)  # [batch_size, num_actions, num_atoms]
+        else:
+          advantage = self.advantage_stream(x).view(batch_size, -1, self.num_atoms)
 
         # Distributional Q-values
         q_atoms = value + advantage - advantage.mean(dim=1, keepdim=True)
@@ -70,8 +89,14 @@ class DQN(nn.Module):
         # Apply softmax to get probabilities
         probabilities = F.softmax(q_atoms, dim=2)
 
-        if self.has_rnn:
-          return probabilities, hidden_state
+        if self.return_info:
+          speed_atoms = value + speed_advantage - speed_advantage.mean(dim=1, keepdim=True)
+          speed_atoms = speed_atoms.view(batch_size, -1, self.num_atoms)
+          direction_atoms = value + direction_advantage - direction_advantage.mean(dim=1, keepdim=True)
+          direction_atoms = direction_atoms.view(batch_size, -1, self.num_atoms)
+          speed_probabilities = F.softmax(speed_atoms, dim=2)
+          direction_probabilities = F.softmax(direction_atoms, dim=2)
+          return probabilities, hidden_state, speed_probabilities, direction_probabilities
         else:
           return probabilities # [batch_size, output_dim, num_atoms]
 

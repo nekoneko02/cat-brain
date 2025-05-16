@@ -211,7 +211,9 @@ class CatToyEnv(AECEnv):
 
     def _move_agent(self, agent, action):
         selected_action = self.actions[agent][action]
-        dx, dy = selected_action["dx"], selected_action["dy"]
+        speed, dx, dy = selected_action["speed"], selected_action["dx"], selected_action["dy"]
+        dx, dy = dx * speed, dy * speed
+        
         x, y = self.positions[agent]
         new_x, new_y = x + dx, y + dy
 
