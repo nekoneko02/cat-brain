@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from tensordict import TensorDict
@@ -21,7 +22,6 @@ class DQNAgent:
         self.gamma = agent_config["discount_rate"]
         self.device = device
 
-        
         self.action_space = agent_config["action_space"]
 
         self.epsilon = epsilon
@@ -73,7 +73,7 @@ class DQNAgent:
             input = self.seq_obs
         else:
             input = state
-        input = torch.FloatTensor(input).unsqueeze(0).to(self.device)# バッチ次元を追加
+        input = torch.as_tensor(np.array(input)).unsqueeze(0).to(self.device)# バッチ次元を追加
 
         with torch.no_grad():
             probabilities = self.model(input)  # [batch_size, output_dim, num_atoms]

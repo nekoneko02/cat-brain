@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,12 +12,11 @@ class DQN(nn.Module):
         categorical_config = dqn_config["categorical"]
         self.num_atoms = categorical_config["num_atoms"]
         self.v_min, self.v_max = categorical_config["v_min"], categorical_config["v_max"]
-        if "rnn" in dqn_config: # RNN層
-          self.has_rnn = True
+
+        self.has_rnn = "rnn" in dqn_config # RNN層がある
+        if self.has_rnn: 
           hidden_dim = dqn_config["rnn"]["hidden_dim"]
           self.rnn = nn.GRU(input_dim, hidden_dim, batch_first=True)
-        else:
-          self.has_rnn = False
 
         self.delta_z = (self.v_max - self.v_min) / (self.num_atoms - 1)
         self.z_support = torch.linspace(self.v_min, self.v_max, self.num_atoms)
@@ -65,7 +65,7 @@ class DQN(nn.Module):
 
         # Distributional Q-values
         q_atoms = value + advantage - advantage.mean(dim=1, keepdim=True)
-        q_atoms = q_atoms.view(batch_size, -1, self.num_atoms)
+        q_atoms = q_atoms.view(batch_size, -1, self.num_atoms) # [batch_size, num_actions, num_atoms]
 
         # Apply softmax to get probabilities
         probabilities = F.softmax(q_atoms, dim=2)

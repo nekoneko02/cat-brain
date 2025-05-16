@@ -55,7 +55,8 @@ class CatToyEnv(AECEnv):
             for agent in self.possible_agents
         }
 
-        self.dummy_actions = list(range(self.action_spaces[self.dummy].n))
+        if self.dummy:
+            self.dummy_actions = list(range(self.action_spaces[self.dummy].n))
         self.positions = {agent: [0, 0] for agent in self.agents}
         self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
         self.rewards = {agent: 0.0 for agent in self.agents}
@@ -64,7 +65,7 @@ class CatToyEnv(AECEnv):
         self.infos = {agent: {} for agent in self.agents}
         self.all_step_count = 0
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
-        self.glow_grass = 0.01
+        self.glow_grass = 1/(self.width*self.height)
         self.cat_obs_by_toy = [0,0] # toyから見たcatの位置
         self.prev_distance = self.max_distance
 
@@ -135,6 +136,7 @@ class CatToyEnv(AECEnv):
 
         self.cat_obs_by_toy = self.positions[self.chaser]
         self.prev_distance = self.max_distance
+        self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
 
         return self.observe(self.agent_selection)
 
@@ -205,7 +207,7 @@ class CatToyEnv(AECEnv):
         if selected_action["can_eatting"]: # ゆっくり動く時だけ食べられる
             self.rewards[self.runner] += self.grass[int(x), int(y)] # 食べた草の分だけ報酬を得る
             self.grass[int(x), int(y)] = 0
-        self.grass = np.clip(self.grass + self.glow_grass, 0, 1)
+        self.grass += self.glow_grass
 
     def _move_agent(self, agent, action):
         selected_action = self.actions[agent][action]
