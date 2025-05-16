@@ -59,6 +59,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     for(let seq_i=0; seq_i < 50; seq_i++){
       this.seq_obs[seq_i] = init_input;
     }
+    this.dummyPosition = [init_input[4], init_input[5]];
   }
 
   async move(toy) {
@@ -78,7 +79,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input = [
       cat.x, cat.y,
       toy.x, toy.y,
-      40,30
+      ...this.dummyPosition
     ];
     this.seq_obs.unshift(input)
     this.seq_obs.pop()
@@ -147,6 +148,14 @@ class Toy extends Phaser.GameObjects.Sprite {
   }
 }
 
+function generateDummyPosition(){
+  return [getRandomInt(environment.width), getRandomInt(environment.height)];
+
+  function getRandomInt(max) {
+    return Math.floor(Math.random() * max);
+  }
+}
+
 // ゲームシーン
 class GameScene extends Phaser.Scene {
   constructor() {
@@ -189,8 +198,9 @@ class GameScene extends Phaser.Scene {
     const init = [
       400, 400,
       100, 100,
-      400, 300
+      ...generateDummyPosition()
     ];
+    console.log(init);
     this.cat = new Cat(this, init[0], init[1], init, catScale);
     this.toy = new Toy(this, init[2], init[3], toyScale);
 
