@@ -102,12 +102,16 @@ class Cat extends Phaser.GameObjects.Sprite {
 }
 
 
-// おもちゃクラス
 class Toy extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, scale) {
     super(scene, x, y, 'toy');
     this.setScale(scale);
     this.cursors = scene.input.keyboard.createCursorKeys();  // 矢印キー入力
+    this.currentSpeed = 1;  // 初期値は 1
+  }
+
+  setSpeed(speed) {
+    this.currentSpeed = speed;
   }
 
   update() {
@@ -123,6 +127,7 @@ class Toy extends Phaser.GameObjects.Sprite {
     if (this.cursors.down.isDown) {
       this.move('down');
     }
+
     // ボタン操作
     const direction = this.scene.activeDirection;
     if (direction) {
@@ -131,23 +136,14 @@ class Toy extends Phaser.GameObjects.Sprite {
   }
 
   move(direction) {
-    switch (direction) {
-      case 'up':
-        this.x += actions_toy[0].dx * toy_speed;
-        this.y += actions_toy[0].dy * toy_speed;
-        break;
-      case 'down':
-        this.x += actions_toy[1].dx * toy_speed;
-        this.y += actions_toy[1].dy * toy_speed;
-        break;
-      case 'left':
-        this.x += actions_toy[2].dx * toy_speed;
-        this.y += actions_toy[2].dy * toy_speed;
-        break;
-      case 'right':
-        this.x += actions_toy[3].dx * toy_speed;
-        this.y += actions_toy[3].dy * toy_speed;
-        break;
+    const matchingActions = actions_toy.filter(action => 
+      action.name === direction && action.speed === this.currentSpeed
+    );
+
+    if (matchingActions.length > 0) {
+      const action = matchingActions[0];
+      this.x += action.dx * action.speed;
+      this.y += action.dy * action.speed;
     }
 
     // 境界チェック
@@ -211,6 +207,7 @@ class GameScene extends Phaser.Scene {
     console.log(init);
     this.cat = new Cat(this, init[0], init[1], init, catScale);
     this.toy = new Toy(this, init[2], init[3], toyScale);
+    this.toy.setSpeed(1); // 初期速度を 1 に設定
 
     this.add.existing(this.cat);
     this.add.existing(this.toy);
@@ -294,8 +291,24 @@ class GameScene extends Phaser.Scene {
 
       this.add.text(x, y, label, { fontSize: '24px', color: '#000' }).setOrigin(0.5);
     });
-  }
 
+    // 速度切り替えボタン
+    const speedButton1 = this.add.rectangle(600, 550, buttonSize, buttonSize, 0x0000ff)
+      .setInteractive()
+      .on('pointerdown', () => {
+        this.toy.setSpeed(1);
+      });
+
+    this.add.text(600, 550, '1', { fontSize: '24px', color: '#fff' }).setOrigin(0.5);
+
+    const speedButton2 = this.add.rectangle(700, 550, buttonSize, buttonSize, 0xff0000)
+      .setInteractive()
+      .on('pointerdown', () => {
+        this.toy.setSpeed(2.5);
+      });
+
+    this.add.text(700, 550, '2.5', { fontSize: '24px', color: '#fff' }).setOrigin(0.5);
+  }
 }
 
 
