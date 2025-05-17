@@ -35,18 +35,11 @@ function linspace(v_min, v_max, num_atoms) {
   return arr;
 }
 
-function sum(probabilities, z_support) {
-  // probabilities は [num_actions, num_atoms] の形
-  const num_actions = actions.length;
-  const result = new Array(num_actions);
-  for (let action_i = 0; action_i < num_actions; action_i++) {
-    let sum = 0;
-    for (let atom_i = 0; atom_i < z_support.length; atom_i++) {
-        sum += probabilities[action_i * z_support.length + atom_i] * z_support[atom_i];
-    }
-    result[action_i] = sum;
-  }
-  return result;
+function softmax(arr) {
+  const maxVal = Math.max(...arr);  // オーバーフロー対策
+  const expArr = arr.map(v => Math.exp(v - maxVal)); // exp(v - maxVal)でスケーリング
+  const sumExp = expArr.reduce((sum, val) => sum + val, 0);
+  return expArr.map(v => v / sumExp);
 }
 
 // 猫クラス
@@ -54,24 +47,39 @@ class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, init_input, scale) {
     super(scene, x, y, 'cat');
     this.setScale(scale);
-    this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
     this.seq_obs = []
     for(let seq_i=0; seq_i < 50; seq_i++){
       this.seq_obs[seq_i] = init_input;
     }
+    this.interest = [];
+    this.interestText = scene.add.text(this.x, this.y - 20, '興味なし', {
+      fontSize: '16px',
+      fill: '#fff',
+      fontFamily: '"Noto Sans JP", "Meiryo", sans-serif'
+    });
     this.dummyPosition = [init_input[4], init_input[5]];
   }
 
   async move(toy) {
     const action = await this.predictAction(this, toy);
-    const selectedAction = actions[action];
+    const selectedAction = actions[action[0]][action[1]];
     if (selectedAction) {
-      this.x += selectedAction.dx;
-      this.y += selectedAction.dy;
+      this.x += selectedAction.dx * selectedAction.speed;
+      this.y += selectedAction.dy * selectedAction.speed;
     }
   
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
     this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
+
+    // interest に基づいたテキストの更新
+    this.interestText.setPosition(this.x + 20, this.y - 40);
+    const interestTextMap = {
+      0: '興味なし',
+      1: '探索中',
+      2: '興味津々'
+    };
+    const index = this.interest.indexOf(Math.max(...this.interest))
+    this.interestText.setText(interestTextMap[index] + (this.interest[index]).toFixed(3));
   }
   async predictAction(cat, toy) {
     if (!session) throw new Error('Model not loaded yet!');
@@ -86,10 +94,10 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
-    const output = sum(results.probabilities.data, this.z_support); // [action_size]
+    // interest の取得と更新（動きの大きさで興味を計測する）
+    this.interest = results.q_values_speed.data; // [action_size]
     // 最大のQ値を持つ行動
-    const maxIdx = output.indexOf(Math.max(...output));
-    return maxIdx;
+    return [results.action_speed.data, results.action_direction.data];
   }
 }
 

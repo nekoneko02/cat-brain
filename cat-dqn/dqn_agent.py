@@ -17,6 +17,22 @@ importlib.reload(replay_buffer)
 from dqn import DQN
 from replay_buffer import SequenceTensorDictPrioritizedReplayBuffer
 
+class DQNAdapter:
+    def __init__(self, dqn):
+        self.dqn = dqn
+    def get_action(self, observation):
+        """環境の状態からActionを取得する。
+        Envから受け取ったobservationを入力として、modelの出力を元にActionを選択する。
+        ActionはそのままEnvに渡せる形式とする。
+        """
+        raise NotImplementedError
+    def td_error(self, observation, action, reward, next_observation, done, info):
+        """td_errorを計算する。
+        SARSAを入力として、td_errorを計算する。0次元はbatch次元を前提とする。
+        """
+        raise NotImplementedError
+        
+
 class DQNAgent:
     def __init__(self, dqn_config, agent_config, device = "cpu", epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
         self.gamma = agent_config["discount_rate"]
@@ -28,8 +44,8 @@ class DQNAgent:
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
 
-        self.model = DQN(dqn_config).to(device)
-        self.target_model = DQN(dqn_config).to(device)
+        self.model = DQN(dqn_config, device).to(device)
+        self.target_model = DQN(dqn_config, device).to(device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=agent_config["learning_rate"])
         self.loss_fn = nn.MSELoss()
 
@@ -68,18 +84,7 @@ class DQNAgent:
     def act(self, state):
         if random.random() <= self.epsilon:
             return self.action_space.sample()
-        if self.has_rnn:
-            self.seq_obs.append(state)
-            input = self.seq_obs
-        else:
-            input = state
-        input = torch.as_tensor(np.array(input)).unsqueeze(0).to(self.device)# バッチ次元を追加
-
-        with torch.no_grad():
-            probabilities = self.model(input)  # [batch_size, output_dim, num_atoms]
-            q_values = torch.sum(probabilities * self.model.get_support(), dim=-1)  # [batch_size, output_dim]
-        
-        return torch.argmax(q_values).item()  # 最大Q値に基づいて行動を選択
+        return self.model.get_action(state)
 
     def reset_hidden_state(self):
         self.hidden_state = None
@@ -103,16 +108,20 @@ class DQNAgent:
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
+        if self.model.is_factorized:
+            self._replay_factorized(batch_size)
+        else:
+            self._replay_simple(batch_size)
 
+    def _replay_simple(self, batch_size):
         states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
         indices, weights = info['index'], info['_weight']
         weights = torch.FloatTensor(weights).to(self.device)  # Tensorに変換
 
-        probabilities = self.model(states)  # [batch_size, num_actions, num_atoms], hidden_state
+        probabilities = self.model.forward(states)  # [batch_size, num_actions, num_atoms], hidden_state
         with torch.no_grad():
-            next_probabilities = self.target_model(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
+            next_probabilities = self.target_model.forward(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
 
-        batch_size = probabilities.shape[0]
         batch_indices = torch.arange(batch_size, device=self.device)
         # 選択したアクションの分布を取得
         selected_probs = probabilities[batch_indices, actions] # [batch_size, num_atoms]
@@ -131,14 +140,66 @@ class DQNAgent:
         kl_div = F.kl_div(torch.log(selected_probs + 1e-8), projected_distribution, reduction='none').sum(dim=1)
 
         # 優先度の更新
-        td_errors = kl_div.detach()
+        td_errors = kl_div
         # 優先度のクリッピング
-        max_priority = 1e3  # 適宜調整
-        td_errors = torch.clamp(td_errors, min=1.0, max=max_priority)
-        self.memory.update_priority(indices, td_errors)
+        priority = torch.clamp(td_errors.detach(), min=1.0, max=1e3)
+        self.memory.update_priority(indices, priority)
 
         # 損失計算（重み適用）
-        loss = (weights * kl_div).mean()
+        loss = (weights * td_errors).mean()
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # ε減少
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+    def _replay_factorized(self, batch_size):
+        states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
+        actions_speed, actions_direction = actions[:, 0], actions[:, 1]
+        indices, weights = info['index'], info['_weight']
+        weights = torch.FloatTensor(weights).to(self.device)
+
+        # 現在の分布取得
+        probabilities_speed, probabilities_direction = self.model.forward(states)
+
+        with torch.no_grad():
+            next_probs_speed, next_probs_direction = self.target_model.forward(next_states)
+
+        batch_indices = torch.arange(batch_size, device=self.device)
+
+        # 選択したアクションの分布を取得
+        selected_probs_speed = probabilities_speed[batch_indices, actions_speed]  # [batch_size, num_atoms]
+        selected_probs_direction = probabilities_direction[batch_indices, actions_direction]
+
+        # 次状態のQ値の計算
+        next_q_values_speed = torch.sum(next_probs_speed * self.model.get_support(), dim=-1)
+        next_q_values_direction = torch.sum(next_probs_direction * self.model.get_support(), dim=-1)
+
+        # 次状態のアクション選択
+        next_actions_speed = torch.argmax(next_q_values_speed, dim=1)
+        next_actions_direction = torch.argmax(next_q_values_direction, dim=1)
+
+        # 次状態の分布を選択
+        next_dist_speed = next_probs_speed[batch_indices, next_actions_speed]
+        next_dist_direction = next_probs_direction[batch_indices, next_actions_direction]
+
+        # プロジェクション
+        projected_dist_speed = self.project_distribution(rewards, dones, next_dist_speed)
+        projected_dist_direction = self.project_distribution(rewards, dones, next_dist_direction)
+
+        # 損失計算
+        kl_div_speed = F.kl_div(torch.log(selected_probs_speed + 1e-8), projected_dist_speed, reduction='none').sum(dim=1)
+        kl_div_direction = F.kl_div(torch.log(selected_probs_direction + 1e-8), projected_dist_direction, reduction='none').sum(dim=1)
+
+        # 優先度更新
+        td_errors = (kl_div_speed + kl_div_direction)
+        priority = torch.clamp(td_errors.detach(), min=1.0, max=1e3)
+        self.memory.update_priority(indices, priority)
+
+        # 損失計算（重み適用）
+        loss = (weights * td_errors).mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -165,10 +226,10 @@ class DQNAgent:
         
         # 各要素の target_z を計算
         target_z = rewards.unsqueeze(1) + self.gamma * z_support.unsqueeze(0) * (1 - dones.unsqueeze(1))
-        target_z = target_z.clamp(min=self.model.v_min, max=self.model.v_max)
+        target_z = target_z.clamp(min=self.model.q_value_adapter.v_min, max=self.model.q_value_adapter.v_max)
 
         # インデックス計算
-        b = (target_z - self.model.v_min) / self.model.delta_z
+        b = (target_z - self.model.q_value_adapter.v_min) / self.model.q_value_adapter.delta_z
         l = b.floor().long()
         u = b.ceil().long()
 
