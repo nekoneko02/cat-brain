@@ -35,34 +35,11 @@ function linspace(v_min, v_max, num_atoms) {
   return arr;
 }
 
-function sum(probabilities, z_support) {
-  // probabilities は [num_actions, num_atoms] の形
-  const num_actions = probabilities.length / z_support.length; //speed_probのケースを考慮
-  const result = new Array(num_actions);
-  for (let action_i = 0; action_i < num_actions; action_i++) {
-    let sum = 0;
-    for (let atom_i = 0; atom_i < z_support.length; atom_i++) {
-        sum += probabilities[action_i * z_support.length + atom_i] * z_support[atom_i];
-    }
-    result[action_i] = sum;
-  }
-  return result;
-}
-
-function softmax(arr) {
-  const maxVal = Math.max(...arr);  // オーバーフロー対策
-  const expArr = arr.map(v => Math.exp(v - maxVal)); // exp(v - maxVal)でスケーリング
-  const sumExp = expArr.reduce((sum, val) => sum + val, 0);
-  return expArr.map(v => v / sumExp);
-}
-
-
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, init_input, scale) {
     super(scene, x, y, 'cat');
     this.setScale(scale);
-    this.z_support = linspace(model_config.v_min, model_config.v_max, model_config.num_atoms);
     this.seq_obs = []
     for(let seq_i=0; seq_i < 50; seq_i++){
       this.seq_obs[seq_i] = init_input;
@@ -110,10 +87,9 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
-    const output = sum(results.probabilities.data, this.z_support); // [action_size]
+    const output = results.probabilities.data; // [action_size]
     // interest の取得と更新（動きの大きさで興味を計測する）
-    this.interest = softmax(sum(results.speed_probabilities.data, this.z_support));
-    const dir = softmax(sum(results.direction_probabilities.data, this.z_support))
+    this.interest = results.speed_probabilities.data;
     // 最大のQ値を持つ行動
     const maxIdx = output.indexOf(Math.max(...output));
     return maxIdx;

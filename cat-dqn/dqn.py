@@ -19,7 +19,7 @@ class DQN(nn.Module):
           self.rnn = nn.GRU(input_dim, hidden_dim, batch_first=True)
 
         self.delta_z = (self.v_max - self.v_min) / (self.num_atoms - 1)
-        self.z_support = torch.linspace(self.v_min, self.v_max, self.num_atoms)
+        self.z_support = torch.linspace(self.v_min, self.v_max, self.num_atoms) # [num_atom, ]
 
         # 特徴抽出層
         layers = []
@@ -54,13 +54,18 @@ class DQN(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x, hidden_state=None):
-        if self.return_info:
-          probability, _ = self._forward_with_hidden_state(x, None)
-        else:
-          probability = self._forward_with_hidden_state(x, None)
-        return probability
+      if self.return_info:
+        probabilities, hidden_state, speed_advantage, direction_advantage = self.forward_distribution(x, hidden_state)
+        q_values = torch.sum(probabilities * self.get_support(), dim=-1)
+        q_values_by_speed = torch.sum(speed_advantage * self.get_support(), dim=-1)
+        q_values_by_direction = torch.sum(direction_advantage * self.get_support(), dim=-1)
+        return F.softmax(q_values, dim=1), hidden_state, q_values_by_speed, q_values_by_direction
+      else:
+        probabilities = self.forward_distribution(x, hidden_state)
+        q_values = torch.sum(probabilities * self.get_support(), dim=-1)
+        return q_values
 
-    def _forward_with_hidden_state(self, x, hidden_state=None):
+    def forward_distribution(self, x, hidden_state=None):
         batch_size = x.shape[0]
 
         if self.has_rnn:
@@ -90,13 +95,7 @@ class DQN(nn.Module):
         probabilities = F.softmax(q_atoms, dim=2)
 
         if self.return_info:
-          speed_atoms = value + speed_advantage - speed_advantage.mean(dim=1, keepdim=True)
-          speed_atoms = speed_atoms.view(batch_size, -1, self.num_atoms)
-          direction_atoms = value + direction_advantage - direction_advantage.mean(dim=1, keepdim=True)
-          direction_atoms = direction_atoms.view(batch_size, -1, self.num_atoms)
-          speed_probabilities = F.softmax(speed_atoms, dim=2)
-          direction_probabilities = F.softmax(direction_atoms, dim=2)
-          return probabilities, hidden_state, speed_probabilities, direction_probabilities
+          return probabilities, hidden_state, speed_advantage, direction_advantage
         else:
           return probabilities # [batch_size, output_dim, num_atoms]
 

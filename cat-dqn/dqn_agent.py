@@ -76,8 +76,7 @@ class DQNAgent:
         input = torch.as_tensor(np.array(input)).unsqueeze(0).to(self.device)# バッチ次元を追加
 
         with torch.no_grad():
-            probabilities = self.model(input)  # [batch_size, output_dim, num_atoms]
-            q_values = torch.sum(probabilities * self.model.get_support(), dim=-1)  # [batch_size, output_dim]
+            q_values = self.model(input)  # [batch_size, output_dim]
         
         return torch.argmax(q_values).item()  # 最大Q値に基づいて行動を選択
 
@@ -108,9 +107,9 @@ class DQNAgent:
         indices, weights = info['index'], info['_weight']
         weights = torch.FloatTensor(weights).to(self.device)  # Tensorに変換
 
-        probabilities = self.model(states)  # [batch_size, num_actions, num_atoms], hidden_state
+        probabilities = self.model.forward_distribution(states)  # [batch_size, num_actions, num_atoms], hidden_state
         with torch.no_grad():
-            next_probabilities = self.target_model(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
+            next_probabilities = self.target_model.forward_distribution(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
 
         batch_size = probabilities.shape[0]
         batch_indices = torch.arange(batch_size, device=self.device)
