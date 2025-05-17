@@ -51,8 +51,10 @@ class CatToyEnv(AECEnv):
             for agent in self.possible_agents
         }
         self.action_spaces = {
-            agent: spaces.Discrete(len(self.actions[agent]))
-            for agent in self.possible_agents
+            "cat": spaces.MultiDiscrete([3,4]),
+            "pre-cat": spaces.Discrete(len(self.actions["pre-cat"])),
+            self.runner: spaces.Discrete(len(self.actions[self.runner])),
+            self.dummy: spaces.Discrete(len(self.actions[self.dummy])) if self.dummy else None
         }
 
         if self.dummy:
@@ -67,7 +69,6 @@ class CatToyEnv(AECEnv):
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
         self.glow_grass = 1/(self.width*self.height)
         self.cat_obs_by_toy = [0,0] # toyから見たcatの位置
-        self.prev_distance = self.max_distance
 
     def _collision_threshold(self, agent1, agent2):
         agent1_size = (self.agent_size[agent1]['width'] + self.agent_size[agent1]['height']) / 2
@@ -135,7 +136,6 @@ class CatToyEnv(AECEnv):
             squared_distance = self.squared_distance(self.chaser, self.runner)
 
         self.cat_obs_by_toy = self.positions[self.chaser]
-        self.prev_distance = self.max_distance
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
 
         return self.observe(self.agent_selection)
@@ -176,8 +176,12 @@ class CatToyEnv(AECEnv):
         self._move_agent(self.dummy, action)
     
     def _step_chaser(self, action):
+        prev_distance = self.squared_distance(self.chaser, self.runner)
         dx, dy = self._move_agent(self.chaser, action)
-        selected_action = self.actions[self.chaser][action]
+        if self.chaser == "cat":
+            selected_action = self.actions[self.chaser][action[0]][action[1]]
+        else:
+            selected_action = self.actions[self.chaser][action]
 
         toy_collision, distance = self._is_collision(self.chaser, self.runner, return_distance = True)
         dummy_collision = self.dummy and self._is_collision(self.chaser, self.dummy)
@@ -196,8 +200,7 @@ class CatToyEnv(AECEnv):
             self.rewards[self.chaser] += -10.0
         else:
             self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10 # 動いた分だけ疲労する
-            self.rewards[self.chaser] += -0.1 if distance < self.prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
-        self.prev_distance = distance
+            self.rewards[self.chaser] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
 
     def _step_runner(self, action):
         selected_action = self.actions[self.runner][action]
@@ -210,7 +213,10 @@ class CatToyEnv(AECEnv):
         self.grass += self.glow_grass
 
     def _move_agent(self, agent, action):
-        selected_action = self.actions[agent][action]
+        if agent == "cat":
+            selected_action = self.actions[agent][action[0]][action[1]]
+        else:
+            selected_action = self.actions[agent][action]
         speed, dx, dy = selected_action["speed"], selected_action["dx"], selected_action["dy"]
         dx, dy = dx * speed, dy * speed
         

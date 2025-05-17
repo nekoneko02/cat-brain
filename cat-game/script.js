@@ -35,6 +35,13 @@ function linspace(v_min, v_max, num_atoms) {
   return arr;
 }
 
+function softmax(arr) {
+  const maxVal = Math.max(...arr);  // オーバーフロー対策
+  const expArr = arr.map(v => Math.exp(v - maxVal)); // exp(v - maxVal)でスケーリング
+  const sumExp = expArr.reduce((sum, val) => sum + val, 0);
+  return expArr.map(v => v / sumExp);
+}
+
 // 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, init_input, scale) {
@@ -55,7 +62,8 @@ class Cat extends Phaser.GameObjects.Sprite {
 
   async move(toy) {
     const action = await this.predictAction(this, toy);
-    const selectedAction = actions[action];
+    console.log(action)
+    const selectedAction = actions[action[0]][action[1]];
     if (selectedAction) {
       this.x += selectedAction.dx * selectedAction.speed;
       this.y += selectedAction.dy * selectedAction.speed;
@@ -87,12 +95,14 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
-    const output = results.probabilities.data; // [action_size]
+    const speed_probabilities = results.speed_probabilities.data; // [action_size]
+    const direction_probabilities = results.direction_probabilities.data; // [action_size]
     // interest の取得と更新（動きの大きさで興味を計測する）
-    this.interest = results.speed_probabilities.data;
+    this.interest = softmax(speed_probabilities);
     // 最大のQ値を持つ行動
-    const maxIdx = output.indexOf(Math.max(...output));
-    return maxIdx;
+    const speedIdx = speed_probabilities.indexOf(Math.max(...speed_probabilities));
+    const directionIdx = direction_probabilities.indexOf(Math.max(...direction_probabilities));
+    return [speedIdx, directionIdx];
   }
 }
 

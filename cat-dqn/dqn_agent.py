@@ -75,6 +75,15 @@ class DQNAgent:
             input = state
         input = torch.as_tensor(np.array(input)).unsqueeze(0).to(self.device)# バッチ次元を追加
 
+        if self.model.is_factorized:
+            with torch.no_grad():
+                q_values_speed, q_values_direction = self.model(input)  # 2次元のQ値が返る
+
+            # 速度と方向のアクションを独立に選択
+            speed_action = torch.argmax(q_values_speed, dim=1).item()
+            direction_action = torch.argmax(q_values_direction, dim=1).item()
+            return (speed_action, direction_action)
+
         with torch.no_grad():
             q_values = self.model(input)  # [batch_size, output_dim]
         
@@ -102,7 +111,12 @@ class DQNAgent:
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
+        if self.model.is_factorized:
+            self._replay_factorized(batch_size)
+        else:
+            self._replay_simple(batch_size)
 
+    def _replay_simple(self, batch_size):        
         states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
         indices, weights = info['index'], info['_weight']
         weights = torch.FloatTensor(weights).to(self.device)  # Tensorに変換
@@ -111,7 +125,6 @@ class DQNAgent:
         with torch.no_grad():
             next_probabilities = self.target_model.forward_distribution(next_states)  # [batch_size, num_actions, num_atoms], hidden_state
 
-        batch_size = probabilities.shape[0]
         batch_indices = torch.arange(batch_size, device=self.device)
         # 選択したアクションの分布を取得
         selected_probs = probabilities[batch_indices, actions] # [batch_size, num_atoms]
@@ -138,6 +151,59 @@ class DQNAgent:
 
         # 損失計算（重み適用）
         loss = (weights * kl_div).mean()
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # ε減少
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+    def _replay_factorized(self, batch_size):
+        states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
+        actions_speed, actions_direction = actions[:, 0], actions[:, 1]
+        indices, weights = info['index'], info['_weight']
+        weights = torch.FloatTensor(weights).to(self.device)
+
+        # 現在の分布取得
+        probabilities_speed, probabilities_direction = self.model.forward_distribution(states)
+
+        with torch.no_grad():
+            next_probs_speed, next_probs_direction = self.target_model.forward_distribution(next_states)
+
+        batch_indices = torch.arange(batch_size, device=self.device)
+
+        # 選択したアクションの分布を取得
+        selected_probs_speed = probabilities_speed[batch_indices, actions_speed]  # [batch_size, num_atoms]
+        selected_probs_direction = probabilities_direction[batch_indices, actions_direction]
+
+        # 次状態のQ値の計算
+        next_q_values_speed = torch.sum(next_probs_speed * self.model.get_support(), dim=-1)
+        next_q_values_direction = torch.sum(next_probs_direction * self.model.get_support(), dim=-1)
+
+        # 次状態のアクション選択
+        next_actions_speed = torch.argmax(next_q_values_speed, dim=1)
+        next_actions_direction = torch.argmax(next_q_values_direction, dim=1)
+
+        # 次状態の分布を選択
+        next_dist_speed = next_probs_speed[batch_indices, next_actions_speed]
+        next_dist_direction = next_probs_direction[batch_indices, next_actions_direction]
+
+        # プロジェクション
+        projected_dist_speed = self.project_distribution(rewards, dones, next_dist_speed)
+        projected_dist_direction = self.project_distribution(rewards, dones, next_dist_direction)
+
+        # 損失計算
+        kl_div_speed = F.kl_div(torch.log(selected_probs_speed + 1e-8), projected_dist_speed, reduction='none').sum(dim=1)
+        kl_div_direction = F.kl_div(torch.log(selected_probs_direction + 1e-8), projected_dist_direction, reduction='none').sum(dim=1)
+
+        # 優先度更新
+        td_errors = (kl_div_speed + kl_div_direction).detach()
+        td_errors = torch.clamp(td_errors, min=1.0, max=1e3)
+        self.memory.update_priority(indices, td_errors)
+
+        # 損失計算（重み適用）
+        loss = (weights * (kl_div_speed + kl_div_direction)).mean()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
