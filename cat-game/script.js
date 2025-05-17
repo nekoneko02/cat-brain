@@ -62,7 +62,6 @@ class Cat extends Phaser.GameObjects.Sprite {
 
   async move(toy) {
     const action = await this.predictAction(this, toy);
-    console.log(action)
     const selectedAction = actions[action[0]][action[1]];
     if (selectedAction) {
       this.x += selectedAction.dx * selectedAction.speed;
@@ -80,7 +79,7 @@ class Cat extends Phaser.GameObjects.Sprite {
       2: '興味津々'
     };
     const index = this.interest.indexOf(Math.max(...this.interest))
-    this.interestText.setText(interestTextMap[index] + (this.interest[index]*100).toFixed(0) + '%');
+    this.interestText.setText(interestTextMap[index] + (this.interest[index]).toFixed(3));
   }
   async predictAction(cat, toy) {
     if (!session) throw new Error('Model not loaded yet!');
@@ -95,14 +94,10 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
-    const speed_probabilities = results.speed_probabilities.data; // [action_size]
-    const direction_probabilities = results.direction_probabilities.data; // [action_size]
     // interest の取得と更新（動きの大きさで興味を計測する）
-    this.interest = softmax(speed_probabilities);
+    this.interest = results.q_values_speed.data; // [action_size]
     // 最大のQ値を持つ行動
-    const speedIdx = speed_probabilities.indexOf(Math.max(...speed_probabilities));
-    const directionIdx = direction_probabilities.indexOf(Math.max(...direction_probabilities));
-    return [speedIdx, directionIdx];
+    return [results.action_speed.data, results.action_direction.data];
   }
 }
 
