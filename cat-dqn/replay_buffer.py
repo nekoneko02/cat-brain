@@ -9,8 +9,8 @@ class SequenceTensorDictPrioritizedReplayBuffer(TensorDictPrioritizedReplayBuffe
         super().__init__(storage=storage, alpha=alpha, beta=beta, )
         self.sequence_length = sequence_length
 
-    def sample(self, batch_size, sequence_length=None, return_info=True):
-        sequence_length = sequence_length or self.sequence_length
+    def sample(self, batch_size, return_info=True):
+        sequence_length = min(self.sequence_length, len(self._storage))
 
         # サンプリング時の優先度に基づくインデックスを取得
         indices, info = self._sampler.sample(self._storage, batch_size)
