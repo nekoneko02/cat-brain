@@ -88,6 +88,7 @@
     "v_min": -10,
     "v_max": 10,
     "num_atoms": 10,
-    "hidden_size": 64
+    "hidden_size": 64,
+    "sequence_length": 200
   }
 }

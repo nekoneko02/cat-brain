@@ -48,7 +48,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     super(scene, x, y, 'cat');
     this.setScale(scale);
     this.seq_obs = []
-    for(let seq_i=0; seq_i < 50; seq_i++){
+    for(let seq_i=0; seq_i < model_config.sequence_length; seq_i++){
       this.seq_obs[seq_i] = init_input;
     }
     this.interest = [];
