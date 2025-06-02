@@ -15,15 +15,11 @@ importlib.reload(replay_buffer)
 from replay_buffer import SequenceTensorDictPrioritizedReplayBuffer
 
 class DQNAgent:
-    def __init__(self, dqn, target_dqn, dqn_config, agent_config, device = "cpu", epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
+    def __init__(self, dqn, target_dqn, dqn_config, agent_config, device = "cpu"):
         self.gamma = agent_config["discount_rate"]
         self.device = device
 
         self.action_space = agent_config["action_space"]
-
-        self.epsilon = epsilon
-        self.epsilon_min = epsilon_min
-        self.epsilon_decay = epsilon_decay
 
         self.model = dqn
         self.target_model = target_dqn
@@ -65,14 +61,6 @@ class DQNAgent:
         }))
 
     def act(self, state):
-        if random.random() <= self.epsilon:
-            # action_spaceが2次元の場合
-            if self.action_space.shape == (2,):
-                actions = self.action_space.sample()
-                return actions[0], actions[1]
-            # action_spaceが1次元の場合
-            return self.action_space.sample()
-
         x = state
         x = self.model.to_input(x)
         with torch.no_grad():
@@ -148,10 +136,6 @@ class DQNAgent:
         loss.backward()
         self.optimizer.step()
 
-        # ε減少
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-
     def _replay_factorized(self, batch_size):
         states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
         actions_speed, actions_direction = actions[:, 0], actions[:, 1]
@@ -201,10 +185,6 @@ class DQNAgent:
         loss.backward()
         self.optimizer.step()
 
-        # ε減少
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-
     def project_distribution(self, rewards, dones, next_dist):
         """
         Categorical Projection for C51 algorithm.
@@ -252,22 +232,10 @@ class DQNAgent:
         return projected_distribution
     def save_model(self, filepath):
         checkpoint = {
-            "model_state_dict": self.model.state_dict(),
-            "target_model_state_dict": self.target_model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "epsilon": self.epsilon,
-            "epsilon_min": self.epsilon_min,
-            "epsilon_decay": self.epsilon_decay,
-            "gamma": self.gamma
+            "model_state_dict": self.model.state_dict()
         }
         torch.save(checkpoint, filepath)
 
     def load_model(self, filepath):
         checkpoint = torch.load(filepath, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.target_model.load_state_dict(checkpoint["target_model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.epsilon = checkpoint.get("epsilon", self.epsilon)
-        self.epsilon_min = checkpoint.get("epsilon_min", self.epsilon_min)
-        self.epsilon_decay = checkpoint.get("epsilon_decay", self.epsilon_decay)
-        self.gamma = checkpoint.get("gamma", self.gamma)
