@@ -85,9 +85,9 @@
     }
   },
   "model": {
-    "v_min": -10,
-    "v_max": 10,
-    "num_atoms": 10,
+    "v_min": -200,
+    "v_max": 200,
+    "num_atoms": 51,
     "hidden_size": 64,
     "sequence_length": 50
   }

@@ -193,11 +193,11 @@ class CatToyEnv(AECEnv):
         if toy_collision:
             print("finish by", self.chaser)
             self.terminations = {a: True for a in self.agents}
-            self.rewards[self.chaser] += 10.0
+            self.rewards[self.chaser] += 200.0
         elif dummy_collision:
             print("dummy finish by", self.chaser)
             self.terminations = {a: True for a in self.agents}
-            self.rewards[self.chaser] += -10.0
+            self.rewards[self.chaser] += -300.0
         else:
             self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10 # 動いた分だけ疲労する
             self.rewards[self.chaser] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
