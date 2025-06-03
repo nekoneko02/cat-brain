@@ -62,7 +62,7 @@ class Cat extends Phaser.GameObjects.Sprite {
 
   async move(toy) {
     const action = await this.predictAction(this, toy);
-    const selectedAction = actions[action[0]][action[1]];
+    const selectedAction = actions[action];//[0]][action[1]];
     if (selectedAction) {
       this.x += selectedAction.dx * selectedAction.speed;
       this.y += selectedAction.dy * selectedAction.speed;
@@ -95,9 +95,9 @@ class Cat extends Phaser.GameObjects.Sprite {
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
     // interest の取得と更新（動きの大きさで興味を計測する）
-    this.interest = results.q_values_speed.data; // [action_size]
+    this.interest = results.q_values.data; // [action_size]
     // 最大のQ値を持つ行動
-    return [results.action_speed.data, results.action_direction.data];
+    return [results.action.data];//_speed.data, results.action_direction.data];
   }
 }
 

@@ -9,32 +9,13 @@ from torchrl.data import TensorDictPrioritizedReplayBuffer, LazyTensorStorage
 from collections import deque
 
 import importlib
-import dqn
 import replay_buffer
-importlib.reload(dqn)
 importlib.reload(replay_buffer)
 
-from dqn import DQN
 from replay_buffer import SequenceTensorDictPrioritizedReplayBuffer
 
-class DQNAdapter:
-    def __init__(self, dqn):
-        self.dqn = dqn
-    def get_action(self, observation):
-        """環境の状態からActionを取得する。
-        Envから受け取ったobservationを入力として、modelの出力を元にActionを選択する。
-        ActionはそのままEnvに渡せる形式とする。
-        """
-        raise NotImplementedError
-    def td_error(self, observation, action, reward, next_observation, done, info):
-        """td_errorを計算する。
-        SARSAを入力として、td_errorを計算する。0次元はbatch次元を前提とする。
-        """
-        raise NotImplementedError
-        
-
 class DQNAgent:
-    def __init__(self, dqn_config, agent_config, device = "cpu", epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
+    def __init__(self, dqn, target_dqn, dqn_config, agent_config, device = "cpu", epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
         self.gamma = agent_config["discount_rate"]
         self.device = device
 
@@ -44,9 +25,11 @@ class DQNAgent:
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
 
-        self.model = DQN(dqn_config, device).to(device)
-        self.target_model = DQN(dqn_config, device).to(device)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=agent_config["learning_rate"])
+        self.model = dqn
+        self.target_model = target_dqn
+        learning_parameter = self.model.parameters()
+
+        self.optimizer = optim.Adam(learning_parameter, lr=agent_config["learning_rate"])
         self.loss_fn = nn.MSELoss()
 
         self.has_rnn = "rnn" in dqn_config
@@ -83,11 +66,25 @@ class DQNAgent:
 
     def act(self, state):
         if random.random() <= self.epsilon:
+            # action_spaceが2次元の場合
+            if self.action_space.shape == (2,):
+                actions = self.action_space.sample()
+                return actions[0], actions[1]
+            # action_spaceが1次元の場合
             return self.action_space.sample()
-        return self.model.get_action(state)
+
+        x = state
+        x = self.model.to_input(x)
+        with torch.no_grad():
+            probabilities = self.model.forward(x)
+            action = self.model.to_action(probabilities)
+        return action
 
     def reset_hidden_state(self):
         self.hidden_state = None
+
+    def reset_noise(self):
+        self.model.reset_noise()
 
     def _get_sarsa(self, batch_size, return_info=True):
         batch, info = self.memory.sample(batch_size, return_info=return_info)
@@ -253,10 +250,24 @@ class DQNAgent:
         )
 
         return projected_distribution
-
     def save_model(self, filepath):
-        torch.save(self.model.state_dict(), filepath)
+        checkpoint = {
+            "model_state_dict": self.model.state_dict(),
+            "target_model_state_dict": self.target_model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "epsilon": self.epsilon,
+            "epsilon_min": self.epsilon_min,
+            "epsilon_decay": self.epsilon_decay,
+            "gamma": self.gamma
+        }
+        torch.save(checkpoint, filepath)
 
     def load_model(self, filepath):
-        self.model.load_state_dict(torch.load(filepath))
-        self.target_model.load_state_dict(self.model.state_dict())
+        checkpoint = torch.load(filepath, map_location=self.device)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.target_model.load_state_dict(checkpoint["target_model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.epsilon = checkpoint.get("epsilon", self.epsilon)
+        self.epsilon_min = checkpoint.get("epsilon_min", self.epsilon_min)
+        self.epsilon_decay = checkpoint.get("epsilon_decay", self.epsilon_decay)
+        self.gamma = checkpoint.get("gamma", self.gamma)

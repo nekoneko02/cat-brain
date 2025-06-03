@@ -17,3 +17,8 @@ class CategoricalStream(nn.Module):
         batch_size = x.shape[0]
         output = self.network(x).view(batch_size, -1, self.num_atoms)
         return output
+    
+    def reset_noise(self):
+        for layer in self.network:
+            if isinstance(layer, rlnn.NoisyLinear):
+                layer.reset_noise()
