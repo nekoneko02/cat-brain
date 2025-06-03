@@ -28,7 +28,10 @@ class CatToyEnv(AECEnv):
         self.max_distance = self.width + self.height
         self.agent_size = env_config['agent_size']
 
-        self.actions = config['actions']
+        self.actions = {
+            key: np.array(config['actions'][key]) 
+                for key in config['actions']
+        }
 
         self.chaser = chaser
         self.runner = runner
@@ -51,7 +54,7 @@ class CatToyEnv(AECEnv):
             for agent in self.possible_agents
         }
         self.action_spaces = {
-            "cat": spaces.MultiDiscrete([3,4]),
+            "cat": spaces.Discrete(len(self.actions["cat"])),
             "pre-cat": spaces.Discrete(len(self.actions["pre-cat"])),
             self.runner: spaces.Discrete(len(self.actions[self.runner])),
             self.dummy: spaces.Discrete(len(self.actions[self.dummy])) if self.dummy else None
@@ -178,10 +181,7 @@ class CatToyEnv(AECEnv):
     def _step_chaser(self, action):
         prev_distance = self.squared_distance(self.chaser, self.runner)
         dx, dy = self._move_agent(self.chaser, action)
-        if self.chaser == "cat":
-            selected_action = self.actions[self.chaser][action[0]][action[1]]
-        else:
-            selected_action = self.actions[self.chaser][action]
+        selected_action = self.actions[self.chaser][action]
 
         toy_collision, distance = self._is_collision(self.chaser, self.runner, return_distance = True)
         dummy_collision = self.dummy and self._is_collision(self.chaser, self.dummy)
@@ -213,10 +213,7 @@ class CatToyEnv(AECEnv):
         self.grass += self.glow_grass
 
     def _move_agent(self, agent, action):
-        if agent == "cat":
-            selected_action = self.actions[agent][action[0]][action[1]]
-        else:
-            selected_action = self.actions[agent][action]
+        selected_action = self.actions[agent][action]
         speed, dx, dy = selected_action["speed"], selected_action["dx"], selected_action["dy"]
         dx, dy = dx * speed, dy * speed
         

@@ -16,3 +16,7 @@ class DuelingStream(nn.Module):
         q_atoms = value_output + advantage_output - advantage_output.mean(dim=1, keepdim=True)
         probabilities = F.softmax(q_atoms, dim=2)
         return probabilities
+    
+    def reset_noise(self):
+        self.value_stream.reset_noise()
+        self.advantage_stream.reset_noise()
