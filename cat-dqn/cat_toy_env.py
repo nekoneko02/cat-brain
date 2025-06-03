@@ -71,7 +71,6 @@ class CatToyEnv(AECEnv):
         self.all_step_count = 0
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
         self.glow_grass = 1/(self.width*self.height)
-        self.cat_obs_by_toy = [0,0] # toyから見たcatの位置
 
     def _collision_threshold(self, agent1, agent2):
         agent1_size = (self.agent_size[agent1]['width'] + self.agent_size[agent1]['height']) / 2
@@ -94,7 +93,7 @@ class CatToyEnv(AECEnv):
         elif agent == self.runner:
             x, y = int(toy_pos[0]), int(toy_pos[1])
             return np.array([
-                self.cat_obs_by_toy[0], self.cat_obs_by_toy[1],
+                cat_pos[0]            , cat_pos[1],
                 toy_pos[0]            , toy_pos[1],
                 self.grass[x - 1, y] if x-1 >= 0          else 0,
                 self.grass[x + 1, y] if x+1 < self.width  else 0,
@@ -138,7 +137,6 @@ class CatToyEnv(AECEnv):
                 self.positions[agent] = [random.randint(0, self.width - 1), random.randint(0, self.height - 1)]
             squared_distance = self.squared_distance(self.chaser, self.runner)
 
-        self.cat_obs_by_toy = self.positions[self.chaser]
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
 
         return self.observe(self.agent_selection)
@@ -186,10 +184,6 @@ class CatToyEnv(AECEnv):
         toy_collision, distance = self._is_collision(self.chaser, self.runner, return_distance = True)
         dummy_collision = self.dummy and self._is_collision(self.chaser, self.dummy)
 
-        if selected_action["is_found"] or distance < 100:
-            # 動きすぎるか近づきすぎるとtoyに見つかる
-            self.cat_obs_by_toy = self.positions[self.chaser]
-        
         if toy_collision:
             print("finish by", self.chaser)
             self.terminations = {a: True for a in self.agents}
