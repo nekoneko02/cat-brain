@@ -1,4 +1,5 @@
-let session;
+let debugMode = false; // デバッグモードフラグ
+// let session;
 
 async function loadModel() {
   try {
@@ -42,7 +43,6 @@ function softmax(arr) {
   return expArr.map(v => v / sumExp);
 }
 
-// 猫クラス
 class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, init_input, scale) {
     super(scene, x, y, 'cat');
@@ -60,14 +60,14 @@ class Cat extends Phaser.GameObjects.Sprite {
     this.dummyPosition = [init_input[4], init_input[5]];
   }
 
-  async move(toy) {
-    const action = await this.predictAction(this, toy);
-    const selectedAction = actions[action];//[0]][action[1]];
+  async move(toy, dummy) {
+    const action = await this.predictAction(this, toy, dummy);
+    const selectedAction = actions[action];
     if (selectedAction) {
       this.x += selectedAction.dx * selectedAction.speed;
       this.y += selectedAction.dy * selectedAction.speed;
     }
-  
+
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
     this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
 
@@ -81,13 +81,13 @@ class Cat extends Phaser.GameObjects.Sprite {
     const index = this.interest.indexOf(Math.max(...this.interest))
     this.interestText.setText(interestTextMap[index] + (this.interest[index]).toFixed(3));
   }
-  async predictAction(cat, toy) {
+  async predictAction(cat, toy, dummy) {
     if (!session) throw new Error('Model not loaded yet!');
 
     const input = [
       cat.x, cat.y,
       toy.x, toy.y,
-      ...this.dummyPosition
+      dummy.x, dummy.y
     ];
     this.seq_obs.unshift(input)
     this.seq_obs.pop()
@@ -152,6 +152,37 @@ class Toy extends Phaser.GameObjects.Sprite {
   }
 }
 
+
+class Dummy extends Phaser.GameObjects.Sprite {
+  constructor(scene, x, y, scale) {
+    super(scene, x, y, 'cat'); // ダミーもcat画像を流用
+    this.setScale(scale * 0.8);
+    this.visible = debugMode;
+    this.setAlpha(debugMode ? 0.7 : 0); // デバッグ時のみ半透明で表示
+    this.currentAction = 0;
+  }
+
+  move() {
+    // configのactionを使ってランダム移動
+    if (!actions || actions.length === 0) return;
+    const actionIdx = Phaser.Math.Between(0, actions.length - 1);
+    this.currentAction = actionIdx;
+    const action = actions[actionIdx];
+    if (action) {
+      this.x += action.dx * (action.speed || 1);
+      this.y += action.dy * (action.speed || 1);
+    }
+    // 境界チェック
+    this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
+    this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
+  }
+
+  setDebugVisible(flag) {
+    this.visible = flag;
+    this.setAlpha(flag ? 0.7 : 0);
+  }
+}
+
 function generateDummyPosition(){
   return [getRandomInt(environment.width), getRandomInt(environment.height)];
 
@@ -160,13 +191,13 @@ function generateDummyPosition(){
   }
 }
 
-// ゲームシーン
 class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
     this.catImageSize = { width: 0, height: 0}; // 初期値
     this.toyImageSize = { width: 0, height: 0}; // 初期値
     this.isImageLoaded = false; // 追加
+    this.dummy = null;
   }
 
   preload() {
@@ -209,8 +240,13 @@ class GameScene extends Phaser.Scene {
     this.toy = new Toy(this, init[2], init[3], toyScale);
     this.toy.setSpeed(1); // 初期速度を 1 に設定
 
+    // Dummyの生成
+    this.dummy = new Dummy(this, init[4], init[5], catScale);
     this.add.existing(this.cat);
     this.add.existing(this.toy);
+    this.add.existing(this.dummy);
+
+    this.dummy.setDebugVisible(debugMode);
 
     this.gameOver = false;
     this.gameOverText = this.add.text(400, 300, '遊んでくれた！良かったね！', {
@@ -220,13 +256,20 @@ class GameScene extends Phaser.Scene {
     });
     this.gameOverText.setOrigin(0.5);
     this.gameOverText.setVisible(false); // ゲームオーバーのテキストを非表示にする
-    this.createControlButtons() 
-    }
+    this.createControlButtons();
+
+    // デバッグモード切り替えキー（例：Dキー）
+    this.input.keyboard.on('keydown-D', () => {
+      debugMode = !debugMode;
+      this.dummy.setDebugVisible(debugMode);
+    });
+  }
 
   update() {
     if (!this.gameOver) {
-      this.cat.move(this.toy);
+      this.cat.move(this.toy, this.dummy);
       this.toy.update();  // Toyの移動処理を呼び出す
+      this.dummy.move();
     }
     // 衝突判定（矩形の重なりをチェック）
     const catBounds = this.cat.getBounds();
@@ -237,7 +280,6 @@ class GameScene extends Phaser.Scene {
       this.gameOverText.setVisible(true);
     }
   }
-
 
   calculateScale(imageWidth, imageHeight){
     const gameWidth = this.game.config.width;
