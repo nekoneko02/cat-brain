@@ -43,7 +43,7 @@ class DQNCat(nn.Module):
         attention_weighted_sum = x[:, -1:, 0:1] * obs1 + x[:, -1:, 1:2] * obs2  # [batch_size, sequence_length, 2]
 
         x = torch.cat([obs[:, :, 0:2], attention_weighted_sum], dim=-1) # [batch_size, sequence_length, 4]
-        self.info = x[-1, :], obs[-1, :]
+        self.info = attention_weighted_sum
         x = self.pre_cat(x)
         return x
 

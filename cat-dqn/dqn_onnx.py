@@ -10,4 +10,5 @@ class DQNOnnx(nn.Module):
         x = self.dqn(x)
         q_values = self.dqn.q_value_adapter(x)
         action = self.dqn.action_adapter(q_values)
-        return action, q_values
+        info = self.dqn.info
+        return action, q_values, info

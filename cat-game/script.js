@@ -58,10 +58,13 @@ class Cat extends Phaser.GameObjects.Sprite {
       fontFamily: '"Noto Sans JP", "Meiryo", sans-serif'
     });
     this.dummyPosition = [init_input[4], init_input[5]];
+    // info可視化用サークル
+    this.infoCircle = scene.add.circle(0, 0, 10, 0xffff00, 0.7);
+    this.infoCircle.setVisible(false);
   }
 
   async move(toy, dummy) {
-    const action = await this.predictAction(this, toy, dummy);
+    const {action, info} = await this.predictAction(this, toy, dummy);
     const selectedAction = actions[action];
     if (selectedAction) {
       this.x += selectedAction.dx * selectedAction.speed;
@@ -80,6 +83,43 @@ class Cat extends Phaser.GameObjects.Sprite {
     };
     const index = this.interest.indexOf(Math.max(...this.interest))
     this.interestText.setText(interestTextMap[index] + (this.interest[index]).toFixed(3));
+
+    // infoの可視化
+    if (debugMode && info && info.length >= 2) {
+      // infoが[2*seq]の1次元配列の場合、seq個の点を描画
+      let seq = info.length / 2;
+      if (Number.isInteger(seq) && seq > 1) {
+        // 既存のinfoCircleを削除
+        if (this.infoCircles) {
+          this.infoCircles.forEach(c => c.destroy());
+        }
+        this.infoCircles = [];
+        for (let i = 0; i < seq; i++) {
+          const x = info[i * 2];
+          const y = info[i * 2 + 1];
+          if (typeof x === 'number' && typeof y === 'number') {
+            const circle = this.scene.add.circle(x, y, 8, 0xffff00, 0.7);
+            this.infoCircles.push(circle);
+          }
+        }
+      } else {
+        // 1点のみの場合
+        if (!this.infoCircle) {
+          this.infoCircle = this.scene.add.circle(0, 0, 10, 0xffff00, 0.7);
+        }
+        this.infoCircle.setPosition(info[0], info[1]);
+        this.infoCircle.setVisible(true);
+      }
+    } else {
+      // 非表示
+      if (this.infoCircles) {
+        this.infoCircles.forEach(c => c.destroy());
+        this.infoCircles = [];
+      }
+      if (this.infoCircle) {
+        this.infoCircle.setVisible(false);
+      }
+    }
   }
   async predictAction(cat, toy, dummy) {
     if (!session) throw new Error('Model not loaded yet!');
@@ -96,8 +136,10 @@ class Cat extends Phaser.GameObjects.Sprite {
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
     // interest の取得と更新（動きの大きさで興味を計測する）
     this.interest = results.q_values.data; // [action_size]
+    // infoの取得
+    let info = results.info ? results.info.data : null;
     // 最大のQ値を持つ行動
-    return [results.action.data];//_speed.data, results.action_direction.data];
+    return {action: results.action.data[0], info};
   }
 }
 
