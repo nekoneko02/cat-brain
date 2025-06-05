@@ -36,9 +36,10 @@ function linspace(v_min, v_max, num_atoms) {
   return arr;
 }
 
-function softmax(arr) {
-  const maxVal = Math.max(...arr);  // オーバーフロー対策
-  const expArr = arr.map(v => Math.exp(v - maxVal)); // exp(v - maxVal)でスケーリング
+function softmax(arr, temperature = 1.0) {
+  // 温度パラメータで分布の鋭さを調整
+  const maxVal = Math.max(...arr);
+  const expArr = arr.map(v => Math.exp((v - maxVal) / temperature));
   const sumExp = expArr.reduce((sum, val) => sum + val, 0);
   return expArr.map(v => v / sumExp);
 }
@@ -129,8 +130,8 @@ class Cat extends Phaser.GameObjects.Sprite {
       toy.x, toy.y,
       dummy.x, dummy.y
     ];
-    this.seq_obs.unshift(input)
-    this.seq_obs.pop()
+    this.seq_obs.push(input);
+    this.seq_obs.shift();
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
@@ -138,8 +139,21 @@ class Cat extends Phaser.GameObjects.Sprite {
     this.interest = results.q_values.data; // [action_size]
     // infoの取得
     let info = results.info ? results.info.data : null;
-    // 最大のQ値を持つ行動
-    return {action: results.action.data[0], info};
+    // softmaxで確率分布を計算（温度パラメータを利用）
+    let temperature = 0.1; // 必要に応じて外部から変更可能
+    let probs = softmax(this.interest, temperature);
+    // 確率分布からサンプリング
+    let action = 0;
+    let r = Math.random();
+    let acc = 0;
+    for (let i = 0; i < probs.length; i++) {
+      acc += probs[i];
+      if (r < acc) {
+        action = i;
+        break;
+      }
+    }
+    return {action, info};
   }
 }
 
@@ -205,6 +219,7 @@ class Dummy extends Phaser.GameObjects.Sprite {
   }
 
   move() {
+    return;
     // configのactionを使ってランダム移動
     if (!actions || actions.length === 0) return;
     const actionIdx = Phaser.Math.Between(0, actions.length - 1);

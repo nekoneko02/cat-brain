@@ -5,11 +5,8 @@ import torch.nn.functional as F
 
 import importlib
 
-import dqn_factory
-importlib.reload(dqn_factory)
 import stream
 importlib.reload(stream)
-from dqn_factory import DQNFactory
 import adapter
 importlib.reload(adapter)
 
@@ -31,19 +28,31 @@ class DQNCat(nn.Module):
 
         self.q_value_adapter = adapter.QValueAdapter(dqn_config["categorical"]) if not self.is_factorized else adapter.QValueAdapterMultiDim(dqn_config["categorical"])
         self.action_adapter = adapter.ActionAdapter() if not self.is_factorized else adapter.ActionMultiDimAdapter()
-        
+    def parameters(self):
+        params = []
+        for stream in self.streams:
+            params.extend(stream.parameters())
+        #params.extend(self.pre_cat.parameters())
+        return params
+
     def forward(self, x):
         obs = x[:, -5:, :] # [batch_size, sequence_length, obs_space]
         for stream in self.streams:
             x = stream(x)
         x = F.softmax(x, dim = -1) # [batch_size, sequence_length, 2]
-        # 確率に従って、x[0]*(obs[2],obs[3]) + x[1]*(obs[4], obs[5])
         obs1 = obs[:, :, 2:4]  # [batch_size, sequence_length, 2]
         obs2 = obs[:, :, 4:6]  # [batch_size, sequence_length, 2]
-        attention_weighted_sum = x[:, -1:, 0:1] * obs1 + x[:, -1:, 1:2] * obs2  # [batch_size, sequence_length, 2]
-
-        x = torch.cat([obs[:, :, 0:2], attention_weighted_sum], dim=-1) # [batch_size, sequence_length, 4]
-        self.info = attention_weighted_sum
+        if self.training:
+            # 学習時はattention_weighted_sum
+            attention_weighted_sum = x[:, -1:, 0:1] * obs1 + x[:, -1:, 1:2] * obs2  # [batch_size, sequence_length, 2]
+            info = attention_weighted_sum
+        else:
+            # 推論時は確率最大のものを決定論的に選択
+            probs = x[:, -1, :]  # [batch_size, 2]
+            sampled = torch.argmax(probs, dim=1, keepdim=True)  # [batch_size, 1]
+            info = torch.where(sampled == 0, obs1, obs2)  # [batch_size, sequence_length, 2]
+        x = torch.cat([obs[:, :, 0:2], info], dim=-1) # [batch_size, sequence_length, 4]
+        self.info = info
         x = self.pre_cat(x)
         return x
 
