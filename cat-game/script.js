@@ -36,9 +36,10 @@ function linspace(v_min, v_max, num_atoms) {
   return arr;
 }
 
-function softmax(arr) {
-  const maxVal = Math.max(...arr);  // オーバーフロー対策
-  const expArr = arr.map(v => Math.exp(v - maxVal)); // exp(v - maxVal)でスケーリング
+function softmax(arr, temperature = 1.0) {
+  // 温度パラメータで分布の鋭さを調整
+  const maxVal = Math.max(...arr);
+  const expArr = arr.map(v => Math.exp((v - maxVal) / temperature));
   const sumExp = expArr.reduce((sum, val) => sum + val, 0);
   return expArr.map(v => v / sumExp);
 }
@@ -52,11 +53,6 @@ class Cat extends Phaser.GameObjects.Sprite {
       this.seq_obs[seq_i] = init_input;
     }
     this.interest = [];
-    this.interestText = scene.add.text(this.x, this.y - 20, '興味なし', {
-      fontSize: '16px',
-      fill: '#fff',
-      fontFamily: '"Noto Sans JP", "Meiryo", sans-serif'
-    });
     this.dummyPosition = [init_input[4], init_input[5]];
     // info可視化用サークル
     this.infoCircle = scene.add.circle(0, 0, 10, 0xffff00, 0.7);
@@ -73,16 +69,6 @@ class Cat extends Phaser.GameObjects.Sprite {
 
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
     this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);
-
-    // interest に基づいたテキストの更新
-    this.interestText.setPosition(this.x + 20, this.y - 40);
-    const interestTextMap = {
-      0: '興味なし',
-      1: '探索中',
-      2: '興味津々'
-    };
-    const index = this.interest.indexOf(Math.max(...this.interest))
-    this.interestText.setText(interestTextMap[index] + (this.interest[index]).toFixed(3));
 
     // infoの可視化
     if (debugMode && info && info.length >= 2) {
@@ -129,8 +115,8 @@ class Cat extends Phaser.GameObjects.Sprite {
       toy.x, toy.y,
       dummy.x, dummy.y
     ];
-    this.seq_obs.unshift(input)
-    this.seq_obs.pop()
+    this.seq_obs.push(input);
+    this.seq_obs.shift();
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
@@ -138,8 +124,21 @@ class Cat extends Phaser.GameObjects.Sprite {
     this.interest = results.q_values.data; // [action_size]
     // infoの取得
     let info = results.info ? results.info.data : null;
-    // 最大のQ値を持つ行動
-    return {action: results.action.data[0], info};
+    // softmaxで確率分布を計算（温度パラメータを利用）
+    let temperature = 0.1; // 必要に応じて外部から変更可能
+    let probs = softmax(this.interest, temperature);
+    // 確率分布からサンプリング
+    let action = 0;
+    let r = Math.random();
+    let acc = 0;
+    for (let i = 0; i < probs.length; i++) {
+      acc += probs[i];
+      if (r < acc) {
+        action = i;
+        break;
+      }
+    }
+    return {action, info};
   }
 }
 
@@ -240,6 +239,7 @@ class GameScene extends Phaser.Scene {
     this.toyImageSize = { width: 0, height: 0}; // 初期値
     this.isImageLoaded = false; // 追加
     this.dummy = null;
+    this.isHardMode = false; // デフォルトはイージーモード
   }
 
   preload() {
@@ -299,6 +299,7 @@ class GameScene extends Phaser.Scene {
     this.gameOverText.setOrigin(0.5);
     this.gameOverText.setVisible(false); // ゲームオーバーのテキストを非表示にする
     this.createControlButtons();
+    this.createModeToggleButtons(); // モード切り替えボタンを追加
 
     // デバッグモード切り替えキー（例：Dキー）
     this.input.keyboard.on('keydown-D', () => {
@@ -310,8 +311,10 @@ class GameScene extends Phaser.Scene {
   update() {
     if (!this.gameOver) {
       this.cat.move(this.toy, this.dummy);
-      this.toy.update();  // Toyの移動処理を呼び出す
-      this.dummy.move();
+      this.toy.update();
+      if (this.isHardMode) {
+        this.dummy.move(); // ハードモード時のみdummyが動く
+      }
     }
     // 衝突判定（矩形の重なりをチェック）
     const catBounds = this.cat.getBounds();
@@ -392,6 +395,37 @@ class GameScene extends Phaser.Scene {
       });
 
     this.add.text(700, 550, '2.5', { fontSize: '24px', color: '#fff' }).setOrigin(0.5);
+  }
+
+  createModeToggleButtons() {
+    const buttonWidth = 120;
+    const buttonHeight = 40;
+    const baseX = 120;
+    const baseY = 550;
+    // ハードモードボタン
+    this.hardModeButton = this.add.rectangle(baseX, baseY, buttonWidth, buttonHeight, this.isHardMode ? 0xff8800 : 0x888888)
+      .setInteractive()
+      .on('pointerdown', () => {
+        this.isHardMode = true;
+        this.updateModeButtonStyles();
+      });
+    this.hardModeLabel = this.add.text(baseX, baseY, 'ハードモード', { fontSize: '20px', color: '#fff' }).setOrigin(0.5);
+    // イージーモードボタン
+    this.easyModeButton = this.add.rectangle(baseX + buttonWidth + 20, baseY, buttonWidth, buttonHeight, !this.isHardMode ? 0x00bbff : 0x888888)
+      .setInteractive()
+      .on('pointerdown', () => {
+        this.isHardMode = false;
+        this.updateModeButtonStyles();
+      });
+    this.easyModeLabel = this.add.text(baseX + buttonWidth + 20, baseY, 'イージーモード', { fontSize: '20px', color: '#fff' }).setOrigin(0.5);
+  }
+
+  updateModeButtonStyles() {
+    // ボタン色を現在のモードに合わせて更新
+    if (this.hardModeButton && this.easyModeButton) {
+      this.hardModeButton.setFillStyle(this.isHardMode ? 0xff8800 : 0x888888);
+      this.easyModeButton.setFillStyle(!this.isHardMode ? 0x00bbff : 0x888888);
+    }
   }
 }
 

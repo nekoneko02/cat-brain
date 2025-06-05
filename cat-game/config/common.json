@@ -2,7 +2,6 @@
   "description": "PythonとJavaScriptの両方で使用する設定ファイル",
   "actions":{
     "cat": [
-      { "id": 0, "name": "stop", "speed": 0, "dx": 0, "dy": 0, "is_found": false },
       { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
       { "id": 2, "name": "slow-down", "speed": 1.5, "dx": 0, "dy": 1, "is_found": false },
       { "id": 3, "name": "slow-left", "speed": 1.5, "dx": -1, "dy": 0, "is_found": false },
@@ -13,7 +12,6 @@
       { "id": 8, "name": "right", "speed": 3, "dx": 1, "dy": 0, "is_found": true }
     ],
     "pre-cat": [
-      { "id": 0, "name": "stop", "speed": 0, "dx": 0, "dy": 0, "is_found": false },
       { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
       { "id": 2, "name": "slow-down", "speed": 1.5, "dx": 0, "dy": 1, "is_found": false },
       { "id": 3, "name": "slow-left", "speed": 1.5, "dx": -1, "dy": 0, "is_found": false },

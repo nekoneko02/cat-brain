@@ -157,12 +157,16 @@ class CatToyEnv(AECEnv):
         elif agent == self.runner:
             self._step_runner(action)
 
-        # ✅ 報酬加算
-        self._cumulative_rewards[agent] += self.rewards[agent]
-
         if self.get_step_count() >= self.max_steps:
-            self.truncations = {a: True for a in self.agents}
+            self.truncations[agent] = {agent: True for agent in self.agents}
+            self.rewards[self.runner] += 100.0 # Toyは生存報酬を得る
+            self.rewards[self.chaser] += -100.0 # Catは罰を受ける
         self.all_step_count += 1
+
+        # ✅ 報酬加算
+        for agent in self.agents:
+            self._cumulative_rewards[agent] += self.rewards[agent]
+
 
         # ✅ 次のエージェントへ切り替え
         self.agent_selection = self._agent_selector.next()
@@ -194,6 +198,7 @@ class CatToyEnv(AECEnv):
             print("finish by", self.chaser)
             self.terminations = {a: True for a in self.agents}
             self.rewards[self.chaser] += 200.0
+            self.rewards[self.runner] -= 200.0
         elif dummy_collision:
             print("dummy finish by", self.chaser)
             self.terminations = {a: True for a in self.agents}
