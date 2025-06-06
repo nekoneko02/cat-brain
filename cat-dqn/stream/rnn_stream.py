@@ -7,6 +7,11 @@ class RnnStream(nn.Module):
       super().__init__()
       hidden_dim = rnn_config["hidden_dim"]
       self.rnn = nn.GRU(input_dim, hidden_dim, batch_first=True)
+      self.return_sequence = rnn_config["return_sequence"] if "return_sequence" in rnn_config else False
+
   def forward(self, x):
       x, _ = self.rnn(x, None)
-      return x[:, -1, :]  # 最後の出力のみを使用
+      if self.return_sequence:
+          return x[:, -5:, :]
+      else:
+          return x[:, -1, :]
