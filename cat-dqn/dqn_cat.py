@@ -28,6 +28,8 @@ class DQNCat(nn.Module):
 
         self.q_value_adapter = adapter.QValueAdapter(dqn_config["categorical"]) if not self.is_factorized else adapter.QValueAdapterMultiDim(dqn_config["categorical"])
         self.action_adapter = adapter.ActionAdapter() if not self.is_factorized else adapter.ActionMultiDimAdapter()
+        self.temperature = dqn_config["temperature"]
+
     def parameters(self):
         params = []
         for stream in self.streams:
@@ -39,7 +41,7 @@ class DQNCat(nn.Module):
         obs = x[:, -5:, :] # [batch_size, sequence_length, obs_space]
         for stream in self.streams:
             x = stream(x)
-        x = F.softmax(x, dim = -1) # [batch_size, sequence_length, 2]
+        x = F.softmax(x / self.temperature, dim = -1) # 温度付きsoftmax
         obs1 = obs[:, :, 2:4]  # [batch_size, sequence_length, 2]
         obs2 = obs[:, :, 4:6]  # [batch_size, sequence_length, 2]
         if self.training:
