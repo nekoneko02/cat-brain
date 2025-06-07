@@ -59,16 +59,16 @@
     "height": 600,
     "agent_size": {
       "cat": {
-        "width": 30,
-        "height": 30
+        "width": 3,
+        "height": 3
       },
       "pre-cat": {
-        "width": 30,
-        "height": 30
+        "width": 3,
+        "height": 3
       },
       "toy": {
-        "width": 20,
-        "height": 20
+        "width": 2,
+        "height": 2
       },
       "dummy": {
         "width": 15,
