@@ -49,7 +49,9 @@ def train_dqn(agent_dict, train_agents, env, config):
                         agent_dict[agent].replay(batch_size)
 
                 if done or env.get_step_count() % 1000 == 0:
-                    print(f"{agent} with steps {env.get_step_count()}, reward {total_reward - prev_total_reward[agent]: 2f}, action: {prev_action}, state is {obs}")
+                    formated_obs = ", ".join([f"{x:.2f}" for x in obs])
+                    formated_reward = f"{(total_reward - prev_total_reward[agent]):+7.2f}"
+                    print(f"{agent:<7} with steps {env.get_step_count():>5}, reward {formated_reward}, state is {formated_obs}")
 
                 prev_action[agent] = action  # 次の行動を更新
                 prev_total_reward[agent] = total_reward # 次の報酬を更新
