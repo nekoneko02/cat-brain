@@ -1,0 +1,18 @@
+commit c956016cf0c8ec5f6a435e7f85aea7c33d985a5c
+Merge: 0ca1cec 84936c5
+Author: takaya otsu <taka.flemish.giant@gmail.com>
+Date:   Tue Jun 3 18:38:23 2025 +0900
+
+    On 58-2: README
+
+diff --cc README.md
+index 1a7a291,1a7a291..ae0a913
+--- a/README.md
++++ b/README.md
+@@@ -1,3 -1,3 +1,5 @@@
+  ## ねこゲームを立ち上げる方法
+  cd .\cat-game\
+--python -m http.server 8000
+++python -m http.server 8000
+++
+++cp -r ./cat-game/ /mnt/c/Users/takaf/Downloads/cp-cat-game/v{n}

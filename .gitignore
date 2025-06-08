@@ -74,3 +74,4 @@ Icon?
 # 
 cat-dqn/cat_dqn_policy.onnx
 tmp/*
+cat-game/dist/

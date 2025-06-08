@@ -1,16 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>猫と遊ぶゲーム</title>
-  <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ねこと遊ぶゲーム</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-  <div id="game-container"></div>
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js" defer></script>
-  <script src="script.js" defer></script>
+<body style="margin:0; background:#fff;">
+  <div id="root"></div>
+  <script type="module" src="./index.jsx"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@ class CatToyEnv(AECEnv):
         self.render_mode = render_mode
         self.max_steps = max_steps
 
-        with open('../cat-game/config/common.json', 'r') as f:
+        with open('../cat-game/public/config.json', 'r') as f:
             config = json.load(f)
         
         obs_config = config['observation_space']
