@@ -298,6 +298,23 @@ class GameScene extends Phaser.Scene {
     });
     this.gameOverText.setOrigin(0.5);
     this.gameOverText.setVisible(false); // ゲームオーバーのテキストを非表示にする
+
+    // リスタートボタン（初期は非表示）
+    this.restartButton = this.add.text(400, 380, 'リスタート', {
+      fontSize: '32px',
+      fill: '#fff',
+      backgroundColor: '#00bbff',
+      padding: { left: 20, right: 20, top: 10, bottom: 10 },
+      borderRadius: 8,
+      align: 'center',
+    })
+      .setOrigin(0.5)
+      .setInteractive()
+      .on('pointerdown', () => {
+        this.scene.restart();
+      });
+    this.restartButton.setVisible(false);
+
     this.createControlButtons();
     this.createModeToggleButtons(); // モード切り替えボタンを追加
 
@@ -320,9 +337,10 @@ class GameScene extends Phaser.Scene {
     const catBounds = this.cat.getBounds();
     const toyBounds = this.toy.getBounds();
 
-    if (Phaser.Geom.Intersects.RectangleToRectangle(catBounds, toyBounds)) {
+    if (!this.gameOver && Phaser.Geom.Intersects.RectangleToRectangle(catBounds, toyBounds)) {
       this.gameOver = true;
       this.gameOverText.setVisible(true);
+      this.restartButton.setVisible(true);
     }
   }
 
