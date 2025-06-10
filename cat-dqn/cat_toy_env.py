@@ -78,6 +78,19 @@ class CatToyEnv(AECEnv):
         agent2_size = (self.agent_size[agent2]['width'] + self.agent_size[agent2]['height']) / 2
         return ((agent1_size + agent2_size) / 2) ** 2
 
+    def _sum_grass_in_area(self, center_x, center_y, agent_name=None):
+        # agent_nameが指定されていなければrunnerのサイズを使う
+        if agent_name is None:
+            agent_name = self.runner
+        size = self.agent_size[agent_name]
+        width = int(size['width'])
+        height = int(size['height'])
+        x0 = max(int(center_x - width // 2), 0)
+        x1 = min(int(center_x + (width + 1) // 2), self.width)
+        y0 = max(int(center_y - height // 2), 0)
+        y1 = min(int(center_y + (height + 1) // 2), self.height)
+        return np.sum(self.grass[x0:x1, y0:y1])
+
     def observe(self, agent):
         cat_pos = self.positions[self.chaser]
         toy_pos = self.positions[self.runner]
@@ -93,13 +106,17 @@ class CatToyEnv(AECEnv):
             return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1]], dtype=np.float32)
         elif agent == self.runner:
             x, y = int(toy_pos[0]), int(toy_pos[1])
+            grass_left  = self._sum_grass_in_area(x-1, y)
+            grass_right = self._sum_grass_in_area(x+1, y)
+            grass_up    = self._sum_grass_in_area(x, y-1)
+            grass_down  = self._sum_grass_in_area(x, y+1)
             return np.array([
                 self.cat_obs_by_toy[0], self.cat_obs_by_toy[1],
                 toy_pos[0]            , toy_pos[1],
-                self.grass[x - 1, y] if x-1 >= 0          else 0,
-                self.grass[x + 1, y] if x+1 < self.width  else 0,
-                self.grass[x, y - 1] if y-1 >= 0          else 0,
-                self.grass[x, y + 1] if y+1 < self.height else 0
+                grass_left,
+                grass_right,
+                grass_up,
+                grass_down
             ], dtype=np.float32)
         elif agent == self.dummy:
             # dummyは使う必要はない
@@ -213,8 +230,17 @@ class CatToyEnv(AECEnv):
         x, y = self.positions[self.runner][0], self.positions[self.runner][1]
         self.rewards[self.runner] += 0.1 # 生存報酬.
         if selected_action["can_eatting"]: # ゆっくり動く時だけ食べられる
-            self.rewards[self.runner] += self.grass[int(x), int(y)] # 食べた草の分だけ報酬を得る
-            self.grass[int(x), int(y)] = 0
+            grass_sum = self._sum_grass_in_area(x, y)
+            self.rewards[self.runner] += grass_sum # 食べた草の分だけ報酬を得る
+            # grassを0にリセット
+            size = self.agent_size[self.runner]
+            width = int(size['width'])
+            height = int(size['height'])
+            x0 = max(int(x - width // 2), 0)
+            x1 = min(int(x + (width + 1) // 2), self.width)
+            y0 = max(int(y - height // 2), 0)
+            y1 = min(int(y + (height + 1) // 2), self.height)
+            self.grass[x0:x1, y0:y1] = 0
         self.grass += self.glow_grass
 
     def _move_agent(self, agent, action):
