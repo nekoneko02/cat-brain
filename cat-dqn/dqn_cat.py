@@ -20,7 +20,7 @@ class DQNCat(nn.Module):
         self.input_adapters.append(adapter.InputAdapter(dqn_config, device))
 
         streams = []
-        streams.append(stream.RnnStream(6, dqn_config["rnn"]))
+        streams.append(stream.RnnStream(7, dqn_config["rnn"]))
         streams.append(nn.LazyLinear(2))
         self.streams = nn.ModuleList(streams)
         self.pre_cat = pre_cat

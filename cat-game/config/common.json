@@ -38,8 +38,8 @@
   },
   "observation_space": {
     "cat": {
-      "description": "cat, toy, and dummy position",
-      "shape": [6]
+      "description": "cat, toy, and dummy position, and cat.energy",
+      "shape": [7]
     },
     "pre-cat": {
       "description": "cat, toy position",

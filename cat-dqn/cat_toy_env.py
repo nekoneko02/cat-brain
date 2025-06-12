@@ -101,7 +101,8 @@ class CatToyEnv(AECEnv):
             return np.array([
                 self.positions[self.possible_agents[0]][0], self.positions[self.possible_agents[0]][1],
                 self.positions[self.possible_agents[1]][0], self.positions[self.possible_agents[1]][1],
-                self.positions[self.possible_agents[2]][0], self.positions[self.possible_agents[2]][1]
+                self.positions[self.possible_agents[2]][0], self.positions[self.possible_agents[2]][1],
+                self.cat_energy
             ], dtype=np.float32)
         elif agent == self.chaser:
             return np.array([cat_pos[0], cat_pos[1], toy_pos[0], toy_pos[1]], dtype=np.float32)
@@ -259,7 +260,6 @@ class CatToyEnv(AECEnv):
             self.cat_energy += 200
             self.reset_positions()
         elif dummy_collision:
-            print("dummy finish by", self.chaser)
             self.rewards[self.chaser] += -3.0
         else:
             self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10 # 動いた分だけ疲労する
