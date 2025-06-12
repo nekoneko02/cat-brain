@@ -259,12 +259,14 @@ class CatToyEnv(AECEnv):
             self.rewards[self.runner] -= 200.0
             self.cat_energy += 200
             self.reset_positions()
-        elif dummy_collision:
+            return
+        
+        if dummy_collision:
             self.rewards[self.chaser] += -3.0
-        else:
-            self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10 # 動いた分だけ疲労する
-            self.cat_energy -= (abs(dx) + abs(dy))/10
-            self.rewards[self.chaser] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
+        
+        self.rewards[self.chaser] += - (abs(dx) + abs(dy))/10 # 動いた分だけ疲労する
+        self.cat_energy -= (abs(dx) + abs(dy))/10
+        self.rewards[self.chaser] += -0.1 if distance < prev_distance else -1 # 遠ざかると罰. 近づいてもステップ数の罰
 
     def _step_runner(self, action):
         if self.max_steps and self.get_step_count() >= self.max_steps:
