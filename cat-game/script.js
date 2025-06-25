@@ -113,12 +113,13 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input = [
       cat.x, cat.y,
       toy.x, toy.y,
-      dummy.x, dummy.y
+      dummy.x, dummy.y,
+      1000 //体力は仮の値
     ];
     this.seq_obs.push(input);
     this.seq_obs.shift();
     const input_sequence = new Float32Array(this.seq_obs.flat())
-    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 6]);
+    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 7]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
     // interest の取得と更新（動きの大きさで興味を計測する）
     this.interest = results.q_values.data; // [action_size]
@@ -275,7 +276,8 @@ class GameScene extends Phaser.Scene {
     const init = [
       400, 400,
       100, 100,
-      ...generateDummyPosition()
+      ...generateDummyPosition(),
+      1000 // 体力の初期値（仮）
     ];
     console.log(init);
     this.cat = new Cat(this, init[0], init[1], init, catScale);
