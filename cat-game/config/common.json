@@ -32,8 +32,10 @@
       { "id": 6, "name": "left", "speed": 2.5, "dx": -1, "dy": 0, "can_eatting": false },
       { "id": 7, "name": "right", "speed": 2.5, "dx": 1, "dy": 0, "can_eatting": false }
     ],
-    "toy_speed_for_game": 2.5,
-    "dummy": [
+    "dummy1": [
+      { "id": 0, "name": "up", "speed": 0, "dx": 0, "dy": 0 }
+    ],
+    "dummy2": [
       { "id": 0, "name": "up", "speed": 0, "dx": 0, "dy": 0 }
     ]
   },
@@ -50,7 +52,11 @@
       "description": "cat, toy position and grass info",
       "shape": [8]
     },
-    "dummy": {
+    "dummy1": {
+      "description": "dummy",
+      "shape": [2]
+    },
+    "dummy2": {
       "description": "dummy",
       "shape": [2]
     }
@@ -71,7 +77,11 @@
         "width": 2,
         "height": 2
       },
-      "dummy": {
+      "dummy1": {
+        "width": 15,
+        "height": 15
+      },
+      "dummy2": {
         "width": 15,
         "height": 15
       }

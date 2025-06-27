@@ -14,10 +14,10 @@ def train_dqn_no_end(agent_dict, train_agents, env, config):
         obs = env.reset()
         prev_obs = {agent: obs for agent in train_agents} # 前回の観測を保存
         prev_action = {agent: None for agent in train_agents}
-        prev_total_reward = {agent: 0.0 for agent in env.agents} # printでも使うため、env.agentsに対して取得
+        prev_total_reward = {agent: 0.0 for agent in env.candidates} # printでも使うため、env.agentsに対して取得
 
         for agent in env.agent_iter():
-            if agent == "dummy":
+            if str(agent).startswith("dummy"):
                 # dummyエージェントは行動しない
                 action = None
                 env.step(action)
@@ -81,10 +81,10 @@ def train_dqn(agent_dict, train_agents, env, config):
             obs = env.reset()
             prev_obs = {agent: obs for agent in train_agents} # 前回の観測を保存
             prev_action = {agent: None for agent in train_agents}
-            prev_total_reward = {agent: 0.0 for agent in env.agents} # printでも使うため、env.agentsに対して取得
+            prev_total_reward = {agent: 0.0 for agent in env.candidates} # printでも使うため、env.agentsに対して取得
 
             for agent in env.agent_iter():
-                if agent == "dummy":
+                if str(agent).startswith("dummy"):
                     # dummyエージェントは行動しない
                     action = None
                     env.step(action)
@@ -144,7 +144,7 @@ def evaluate_model(agent_dict, eval_env, n_eval_episodes=10):
         episode_rewards = {agent_name: 0.0 for agent_name in agent_dict.keys()}
 
         for agent in env.agent_iter():
-            if agent == "dummy":
+            if str(agent).startswith("dummy"):
                 # dummyエージェントは行動しない
                 action = None
                 env.step(action)
