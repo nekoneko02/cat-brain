@@ -31,7 +31,10 @@ def train_dqn_no_end(agent_dict, train_agents, env, config):
                 total_rewards[agent] += total_reward
                 steps += env.get_step_count()
             else:
-                action = agent_dict[agent].act(obs)
+                if agent == "optical-cat":
+                    option, action = agent_dict[agent].act(obs)
+                else:
+                    action = agent_dict[agent].act(obs) 
                 agent_dict[agent].reset_hidden_state() # 行動を選択するたびにノイズをリセット
 
             env.step(action)
@@ -53,7 +56,7 @@ def train_dqn_no_end(agent_dict, train_agents, env, config):
                 formated_reward = f"{(total_reward - prev_total_reward[agent]):+7.2f}"
                 print(f"{agent:<7} with steps {env.get_step_count():>5}, reward {formated_reward}, state is {formated_obs}")
 
-            prev_action[agent] = action  # 次の行動を更新
+            prev_action[agent] = option if agent == "optical-cat" else action  # 次の行動を更新
             prev_total_reward[agent] = total_reward # 次の報酬を更新
             prev_obs[agent] = obs
 
@@ -98,8 +101,10 @@ def train_dqn(agent_dict, train_agents, env, config):
                     total_rewards[agent] += total_reward
                     steps += env.get_step_count()
                 else:
-                    action = agent_dict[agent].act(obs)
-                    agent_dict[agent].reset_hidden_state() # 行動を選択するたびにノイズをリセット
+                    if agent == "optical-cat":
+                        option, action = agent_dict[agent].act(obs)
+                    else:
+                        action = agent_dict[agent].act(obs) 
 
                 env.step(action)
                 if (agent in train_agents) and (prev_action[agent] is not None):
@@ -120,7 +125,7 @@ def train_dqn(agent_dict, train_agents, env, config):
                     formated_reward = f"{(total_reward - prev_total_reward[agent]):+7.2f}"
                     print(f"{agent:<7} with steps {env.get_step_count():>5}, reward {formated_reward}, state is {formated_obs}")
 
-                prev_action[agent] = action  # 次の行動を更新
+                prev_action[agent] = option if agent == "optical-cat" else action  # 次の行動を更新# 次の行動を更新
                 prev_total_reward[agent] = total_reward # 次の報酬を更新
                 prev_obs[agent] = obs
 
@@ -155,7 +160,10 @@ def evaluate_model(agent_dict, eval_env, n_eval_episodes=10):
             if done:
                 action = None  # 終了したら行動不要
             else:
-                action = agent_dict[agent].act(obs)  # 各エージェントに行動させる
+                if agent == "optical-cat":
+                    option, action = agent_dict[agent].act(obs)
+                else:
+                    action = agent_dict[agent].act(obs)  # 各エージェントに行動させる
                 agent_dict[agent].reset_hidden_state()  # 行動を選択するたびにノイズをリセット
 
             env.step(action)

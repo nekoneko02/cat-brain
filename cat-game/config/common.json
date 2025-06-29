@@ -1,6 +1,17 @@
 {
   "description": "PythonとJavaScriptの両方で使用する設定ファイル",
   "actions":{
+    "optical-cat": [
+      { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
+      { "id": 2, "name": "slow-down", "speed": 1.5, "dx": 0, "dy": 1, "is_found": false },
+      { "id": 3, "name": "slow-left", "speed": 1.5, "dx": -1, "dy": 0, "is_found": false },
+      { "id": 4, "name": "slow-right", "speed": 1.5, "dx": 1, "dy": 0, "is_found": false },
+      { "id": 5, "name": "up", "speed": 3, "dx": 0, "dy": -1, "is_found": true },
+      { "id": 6, "name": "down", "speed": 3, "dx": 0, "dy": 1, "is_found": true },
+      { "id": 7, "name": "left", "speed": 3, "dx": -1, "dy": 0, "is_found": true },
+      { "id": 8, "name": "right", "speed": 3, "dx": 1, "dy": 0, "is_found": true },
+      { "id": 9, "name": "stop", "speed": 0, "dx": 0, "dy": 0, "is_found": false }
+    ],
     "cat": [
       { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
       { "id": 2, "name": "slow-down", "speed": 1.5, "dx": 0, "dy": 1, "is_found": false },
@@ -40,6 +51,10 @@
     ]
   },
   "observation_space": {
+    "optical-cat": {
+      "description": "cat, toy, and dummy position, and cat.energy",
+      "shape": [7]
+    },
     "cat": {
       "description": "cat, toy, and dummy position, and cat.energy",
       "shape": [7]
@@ -65,6 +80,10 @@
     "width": 800,
     "height": 600,
     "agent_size": {
+      "optical-cat": {
+        "width": 3,
+        "height": 3
+      },
       "cat": {
         "width": 3,
         "height": 3

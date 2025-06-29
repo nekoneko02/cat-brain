@@ -63,7 +63,8 @@ class CatToyEnv(AECEnv):
             for agent in self.possible_agents
         }
         self.action_spaces = {
-            "cat": spaces.Discrete(len(self.actions["cat"])),
+            "optical-cat": spaces.Discrete(len(self.actions["optical-cat"])),
+            "cat": spaces.Discrete(len(self.actions["cat"])-1),
             "pre-cat": spaces.Discrete(len(self.actions["pre-cat"])),
             self.runner: spaces.Discrete(len(self.actions[self.runner]))
         }
@@ -107,7 +108,7 @@ class CatToyEnv(AECEnv):
             for a in self.possible_agents:
                 pos = self.positions[a] 
                 obs += pos
-            if agent == "cat":
+            if agent in ["cat", "optical-cat"]:
                 obs.append(self.cat_energy) # catのエネルギーを追加
             return np.array(obs, dtype=np.float32)
 
@@ -182,7 +183,7 @@ class CatToyEnv(AECEnv):
             self._step_dummy()
         elif agent == self.chaser and agent == "pre-cat":
             self._step_pre_cat(action)
-        elif agent == self.chaser and agent == "cat":
+        elif agent == self.chaser and agent in ["cat", "optical-cat"]:
             self._step_cat(action)
         elif agent == self.runner:
             self._step_runner(action)

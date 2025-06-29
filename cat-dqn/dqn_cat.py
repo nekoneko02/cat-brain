@@ -21,19 +21,8 @@ class DQNCat(nn.Module):
 
         streams = []
         streams.append(stream.RnnStream(7, dqn_config["rnn"]))
-        streams.append(stream.FeatureStream(7, dqn_config["feature_stream"]))
-        self.feature_stream = nn.ModuleList(streams)
-
-        medium_dim = dqn_config["feature_stream"][-1] + 256
-        
-        self.dueling_stream = stream.DuelingStream(
-            medium_dim,
-            dqn_config["value_stream"],
-            dqn_config["advantage_stream"],
-            dqn_config["categorical"]["num_atoms"]
-        )
-
-        self.attention_stream = nn.LazyLinear(2)  # 注意機構(toy or dummyを識別する確率を出力する)
+        streams.append(nn.LazyLinear(2))
+        self.streams = nn.ModuleList(streams)
         self.pre_cat = pre_cat
         self.is_factorized = pre_cat.is_factorized
 
@@ -43,21 +32,15 @@ class DQNCat(nn.Module):
 
     def parameters(self):
         params = []
-        params.extend(self.feature_stream.parameters())
-        params.extend(self.dueling_stream.parameters())
-        params.extend(self.attention_stream.parameters())
+        for stream in self.streams:
+            params.extend(stream.parameters())
         #params.extend(self.pre_cat.parameters())
         return params
 
     def forward(self, x):
         obs = x[:, -5:, :] # [batch_size, sequence_length, obs_space]
-        
-        # feature_streamの出力を取得
-        for stream in self.feature_stream:
+        for stream in self.streams:
             x = stream(x)
-        feature = x # [batch_size, 256]
-        
-        x = self.attention_stream(feature)  # [batch_size, sequence_length, 2]
         x = F.softmax(x / self.temperature, dim = -1) # 温度付きsoftmax
         obs1 = obs[:, :, 2:4]  # [batch_size, sequence_length, 2]
         obs2 = obs[:, :, 4:6]  # [batch_size, sequence_length, 2]
@@ -72,12 +55,8 @@ class DQNCat(nn.Module):
             info = torch.where(sampled == 0, obs1, obs2)  # [batch_size, sequence_length, 2]
         x = torch.cat([obs[:, :, 0:2], info], dim=-1) # [batch_size, sequence_length, 4]
         self.info = info
-        x = self.pre_cat.streams[0](x)
-        x = self.pre_cat.streams[1](x) # [batch_size, 256]
-        # feature_streamの出力をdueling_streamに流す
-        dueling_out = self.dueling_stream(torch.cat([x, feature], dim=-1) )  # [batch_size, num_atoms]
-
-        return dueling_out
+        x = self.pre_cat(x)
+        return x
 
     def to_input(self, x):
         for adapter in self.input_adapters:

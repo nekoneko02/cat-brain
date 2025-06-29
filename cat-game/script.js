@@ -121,24 +121,9 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input_sequence = new Float32Array(this.seq_obs.flat())
     const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 7]);
     const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
-    // interest の取得と更新（動きの大きさで興味を計測する）
-    this.interest = results.q_values.data; // [action_size]
-    // infoの取得
+
+    const action = results.action.data; // [action_size]
     let info = results.info ? results.info.data : null;
-    // softmaxで確率分布を計算（温度パラメータを利用）
-    let temperature = 0.1; // 必要に応じて外部から変更可能
-    let probs = softmax(this.interest, temperature);
-    // 確率分布からサンプリング
-    let action = 0;
-    let r = Math.random();
-    let acc = 0;
-    for (let i = 0; i < probs.length; i++) {
-      acc += probs[i];
-      if (r < acc) {
-        action = i;
-        break;
-      }
-    }
     return {action, info};
   }
 }
@@ -226,10 +211,11 @@ class Dummy extends Phaser.GameObjects.Sprite {
 }
 
 function generateDummyPosition(){
-  return [getRandomInt(environment.width), getRandomInt(environment.height)];
+  //return [getRandomInt(0, environment.width), getRandomInt(0, environment.height)];
+  return [getRandomInt(650, 750), getRandomInt(50, 150)];// この周辺の位置だと、パフォーマンスが良い
 
-  function getRandomInt(max) {
-    return Math.floor(Math.random() * max);
+  function getRandomInt(min, max) {
+    return Math.floor(min + Math.random() * (max - min));
   }
 }
 
