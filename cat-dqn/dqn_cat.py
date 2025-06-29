@@ -20,7 +20,7 @@ class DQNCat(nn.Module):
         self.input_adapters.append(adapter.InputAdapter(dqn_config, device))
 
         streams = []
-        streams.append(stream.RnnStream(6, dqn_config["rnn"]))
+        streams.append(stream.RnnStream(7, dqn_config["rnn"]))
         streams.append(nn.LazyLinear(2))
         self.streams = nn.ModuleList(streams)
         self.pre_cat = pre_cat
@@ -46,11 +46,11 @@ class DQNCat(nn.Module):
         obs2 = obs[:, :, 4:6]  # [batch_size, sequence_length, 2]
         if self.training:
             # 学習時はattention_weighted_sum
-            attention_weighted_sum = x[:, -1:, 0:1] * obs1 + x[:, -1:, 1:2] * obs2  # [batch_size, sequence_length, 2]
+            attention_weighted_sum = x[:, 0:1].unsqueeze(1) * obs1 + x[:, 1:2].unsqueeze(1) * obs2  # [batch_size, sequence_length, 2]
             info = attention_weighted_sum
         else:
             # 推論時は確率最大のものを決定論的に選択
-            probs = x[:, -1, :]  # [batch_size, 2]
+            probs = x  # [batch_size, 2]
             sampled = torch.argmax(probs, dim=1, keepdim=True)  # [batch_size, 1]
             info = torch.where(sampled == 0, obs1, obs2)  # [batch_size, sequence_length, 2]
         x = torch.cat([obs[:, :, 0:2], info], dim=-1) # [batch_size, sequence_length, 4]

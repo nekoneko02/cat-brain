@@ -1,6 +1,17 @@
 {
   "description": "PythonとJavaScriptの両方で使用する設定ファイル",
   "actions":{
+    "optical-cat": [
+      { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
+      { "id": 2, "name": "slow-down", "speed": 1.5, "dx": 0, "dy": 1, "is_found": false },
+      { "id": 3, "name": "slow-left", "speed": 1.5, "dx": -1, "dy": 0, "is_found": false },
+      { "id": 4, "name": "slow-right", "speed": 1.5, "dx": 1, "dy": 0, "is_found": false },
+      { "id": 5, "name": "up", "speed": 3, "dx": 0, "dy": -1, "is_found": true },
+      { "id": 6, "name": "down", "speed": 3, "dx": 0, "dy": 1, "is_found": true },
+      { "id": 7, "name": "left", "speed": 3, "dx": -1, "dy": 0, "is_found": true },
+      { "id": 8, "name": "right", "speed": 3, "dx": 1, "dy": 0, "is_found": true },
+      { "id": 9, "name": "stop", "speed": 0, "dx": 0, "dy": 0, "is_found": false }
+    ],
     "cat": [
       { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
       { "id": 2, "name": "slow-down", "speed": 1.5, "dx": 0, "dy": 1, "is_found": false },
@@ -9,7 +20,8 @@
       { "id": 5, "name": "up", "speed": 3, "dx": 0, "dy": -1, "is_found": true },
       { "id": 6, "name": "down", "speed": 3, "dx": 0, "dy": 1, "is_found": true },
       { "id": 7, "name": "left", "speed": 3, "dx": -1, "dy": 0, "is_found": true },
-      { "id": 8, "name": "right", "speed": 3, "dx": 1, "dy": 0, "is_found": true }
+      { "id": 8, "name": "right", "speed": 3, "dx": 1, "dy": 0, "is_found": true },
+      { "id": 9, "name": "stop", "speed": 0, "dx": 0, "dy": 0, "is_found": false }
     ],
     "pre-cat": [
       { "id": 1, "name": "slow-up", "speed": 1.5, "dx": 0, "dy": -1, "is_found": false },
@@ -31,15 +43,21 @@
       { "id": 6, "name": "left", "speed": 2.5, "dx": -1, "dy": 0, "can_eatting": false },
       { "id": 7, "name": "right", "speed": 2.5, "dx": 1, "dy": 0, "can_eatting": false }
     ],
-    "toy_speed_for_game": 2.5,
-    "dummy": [
+    "dummy1": [
+      { "id": 0, "name": "up", "speed": 0, "dx": 0, "dy": 0 }
+    ],
+    "dummy2": [
       { "id": 0, "name": "up", "speed": 0, "dx": 0, "dy": 0 }
     ]
   },
   "observation_space": {
+    "optical-cat": {
+      "description": "cat, toy, and dummy position, and cat.energy",
+      "shape": [7]
+    },
     "cat": {
-      "description": "cat, toy, and dummy position",
-      "shape": [6]
+      "description": "cat, toy, and dummy position, and cat.energy",
+      "shape": [7]
     },
     "pre-cat": {
       "description": "cat, toy position",
@@ -49,7 +67,11 @@
       "description": "cat, toy position and grass info",
       "shape": [8]
     },
-    "dummy": {
+    "dummy1": {
+      "description": "dummy",
+      "shape": [2]
+    },
+    "dummy2": {
       "description": "dummy",
       "shape": [2]
     }
@@ -58,6 +80,10 @@
     "width": 800,
     "height": 600,
     "agent_size": {
+      "optical-cat": {
+        "width": 3,
+        "height": 3
+      },
       "cat": {
         "width": 3,
         "height": 3
@@ -70,7 +96,11 @@
         "width": 2,
         "height": 2
       },
-      "dummy": {
+      "dummy1": {
+        "width": 15,
+        "height": 15
+      },
+      "dummy2": {
         "width": 15,
         "height": 15
       }
