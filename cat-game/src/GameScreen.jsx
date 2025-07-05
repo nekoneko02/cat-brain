@@ -11,7 +11,9 @@ export default function GameScreen() {
   // ゲームオーバー時に呼ばれるグローバル関数をセット
   useEffect(() => {
     window.onGameOver = () => setGameOver(true);
-    return () => { window.onGameOver = undefined; };
+    return () => {
+      window.onGameOver = undefined;
+    };
   }, []);
 
   // ゲーム初期化
@@ -46,13 +48,25 @@ export default function GameScreen() {
   }, [startGame]);
 
   // コントロール用ハンドラ
-  const handleDirection = dir => setActiveDirection(dir);
-  const handleSpeed = s => setSpeed(s);
-  const handleMode = mode => setIsHardMode(mode);
+  const handleDirection = (dir) => setActiveDirection(dir);
+  const handleSpeed = (s) => setSpeed(s);
+  const handleMode = (mode) => setIsHardMode(mode);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', marginTop: 24 }}>
-      <div ref={gameContainerRef} id="game-container" style={{ width: 800, height: 600, background: '#eee' }} />
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        marginTop: 24,
+      }}
+    >
+      <div
+        ref={gameContainerRef}
+        id="game-container"
+        style={{ width: 800, height: 600, background: '#eee' }}
+      />
       <div style={{ marginLeft: 32 }}>
         <GameControls
           onDirection={handleDirection}
@@ -63,7 +77,15 @@ export default function GameScreen() {
         />
         {gameOver && (
           <button
-            style={{ fontSize: 24, marginTop: 24, padding: '12px 40px', borderRadius: 8, background: '#00bbff', color: '#fff', width: 220 }}
+            style={{
+              fontSize: 24,
+              marginTop: 24,
+              padding: '12px 40px',
+              borderRadius: 8,
+              background: '#00bbff',
+              color: '#fff',
+              width: 220,
+            }}
             onClick={startGame}
           >
             リスタート

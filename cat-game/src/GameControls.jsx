@@ -11,7 +11,7 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
   const knobRadius = 18;
 
   // スティック操作イベント
-  const handlePointerDown = e => {
+  const handlePointerDown = (e) => {
     dragging.current = true;
     handlePointerMove(e);
   };
@@ -20,7 +20,7 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
     setStickPos(center);
     onDirection(null);
   };
-  const handlePointerMove = e => {
+  const handlePointerMove = (e) => {
     if (!dragging.current) return;
     const rect = stickRef.current.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -51,14 +51,27 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', marginTop: 0 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        marginTop: 0,
+      }}
+    >
       {/* アナログスティック */}
       <div style={{ marginRight: 32, userSelect: 'none' }}>
         <svg
           ref={stickRef}
           width={120}
           height={120}
-          style={{ touchAction: 'none', background: '#f5f5f5', borderRadius: '50%', boxShadow: '0 0 8px #aaa' }}
+          style={{
+            touchAction: 'none',
+            background: '#f5f5f5',
+            borderRadius: '50%',
+            boxShadow: '0 0 8px #aaa',
+          }}
           onMouseDown={handlePointerDown}
           onMouseUp={handlePointerUp}
           onMouseLeave={handlePointerUp}
@@ -68,19 +81,56 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
           onTouchCancel={handlePointerUp}
           onTouchMove={handlePointerMove}
         >
-          <circle cx={center.x} cy={center.y} r={radius} fill="#ddd" stroke="#aaa" strokeWidth={3} />
+          <circle
+            cx={center.x}
+            cy={center.y}
+            r={radius}
+            fill="#ddd"
+            stroke="#aaa"
+            strokeWidth={3}
+          />
           <circle cx={stickPos.x} cy={stickPos.y} r={knobRadius} fill="#bbb" />
         </svg>
       </div>
       {/* 速度・モード切替ボタン */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ marginBottom: 16 }}>
-          <button onClick={() => onSpeed(1)} style={{ ...wideBtnStyle, background: speed === 1 ? '#0000ff' : '#ccc', color: '#fff' }}>速度1</button>
-          <button onClick={() => onSpeed(2.5)} style={{ ...wideBtnStyle, background: speed === 2.5 ? '#ff0000' : '#ccc', color: '#fff', marginLeft: 8 }}>速度2.5</button>
+          <button
+            onClick={() => onSpeed(1)}
+            style={{ ...wideBtnStyle, background: speed === 1 ? '#0000ff' : '#ccc', color: '#fff' }}
+          >
+            速度1
+          </button>
+          <button
+            onClick={() => onSpeed(2.5)}
+            style={{
+              ...wideBtnStyle,
+              background: speed === 2.5 ? '#ff0000' : '#ccc',
+              color: '#fff',
+              marginLeft: 8,
+            }}
+          >
+            速度2.5
+          </button>
         </div>
         <div>
-          <button onClick={() => onMode(true)} style={{ ...wideBtnStyle, background: isHardMode ? '#ff8800' : '#888', fontSize: 16 }}>ハードモード</button>
-          <button onClick={() => onMode(false)} style={{ ...wideBtnStyle, background: !isHardMode ? '#00bbff' : '#888', marginLeft: 8, fontSize: 16 }}>イージーモード</button>
+          <button
+            onClick={() => onMode(true)}
+            style={{ ...wideBtnStyle, background: isHardMode ? '#ff8800' : '#888', fontSize: 16 }}
+          >
+            ハードモード
+          </button>
+          <button
+            onClick={() => onMode(false)}
+            style={{
+              ...wideBtnStyle,
+              background: !isHardMode ? '#00bbff' : '#888',
+              marginLeft: 8,
+              fontSize: 16,
+            }}
+          >
+            イージーモード
+          </button>
         </div>
       </div>
     </div>

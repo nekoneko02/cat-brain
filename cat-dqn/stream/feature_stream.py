@@ -1,5 +1,5 @@
-import numpy as np
 import torch.nn as nn
+
 
 class FeatureStream(nn.Module):
     def __init__(self, input_dim, layer_configs):

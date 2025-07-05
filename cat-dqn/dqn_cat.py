@@ -1,13 +1,13 @@
-import numpy as np
+import importlib
+
+import stream
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import importlib
-
-import stream
 importlib.reload(stream)
 import adapter
+
 importlib.reload(adapter)
 
 

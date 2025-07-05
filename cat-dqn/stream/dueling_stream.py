@@ -1,8 +1,9 @@
+
 import torch.nn as nn
 import torch.nn.functional as F
-import importlib
 
 from .categorical_stream import CategoricalStream
+
 
 class DuelingStream(nn.Module):
     def __init__(self, input_dim, value_stream_config, advantage_stream_config, num_atoms):

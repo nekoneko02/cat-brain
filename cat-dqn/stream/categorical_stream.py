@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torchrl.modules as rlnn
 
+
 class CategoricalStream(nn.Module):
     def __init__(self, input_dim, layer_configs, num_atoms):
         super().__init__()

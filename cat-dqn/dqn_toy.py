@@ -1,16 +1,15 @@
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 import importlib
 
 import dqn_factory
+import torch.nn as nn
+
 importlib.reload(dqn_factory)
 import stream
+
 importlib.reload(stream)
-from dqn_factory import DQNFactory
 import adapter
+from dqn_factory import DQNFactory
+
 importlib.reload(adapter)
 
 
