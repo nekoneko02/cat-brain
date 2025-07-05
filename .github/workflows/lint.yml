@@ -1,0 +1,46 @@
+name: Lint & Format Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cat-dqn
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Ruff
+        run: pip install ruff
+      - name: Run Ruff (warnings only)
+        run: |
+          ruff check . || true
+          ruff format --check . || true
+
+  lint-js:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cat-game
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint (warnings only)
+        run: |
+          npx eslint . || true
+      - name: Run Prettier (warnings only)
+        run: |
+          npx prettier --check . || true
