@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 120
+exclude = [".venv", "__pycache__", ".mypy_cache", ".pytest_cache", ".git"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
