@@ -1,5 +1,6 @@
 import torch
-from torchrl.data import TensorDictPrioritizedReplayBuffer, PrioritizedSampler, LazyTensorStorage
+from torchrl.data import TensorDictPrioritizedReplayBuffer
+
 
 class SequenceTensorDictPrioritizedReplayBuffer(TensorDictPrioritizedReplayBuffer):
     def __init__(self, storage, alpha=0.6, beta=0.4, sequence_length=5):

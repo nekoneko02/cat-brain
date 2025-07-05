@@ -1,13 +1,13 @@
+import json
+import random
+import time
+
+import numpy as np
+from gymnasium import spaces
+from IPython.display import clear_output
 from pettingzoo import AECEnv
 from pettingzoo.utils.agent_selector import agent_selector
-from gymnasium import spaces
-import numpy as np
-import json
-from IPython.display import clear_output
-import random
-import os
-import time
-import pygame
+
 
 class CatToyEnv(AECEnv):
     metadata = {"render_modes": ["human"], "name": "cat_toy_env_v0"}
@@ -19,7 +19,7 @@ class CatToyEnv(AECEnv):
         self.reset_interval = reset_interval  # 1000stepごとにpossible_agentsを初期化
         self.n_agents = n_agents  # possible_agentsの個数
 
-        with open('../cat-game/config/common.json', 'r') as f:
+        with open('../cat-game/config/common.json') as f:
             config = json.load(f)
         
         obs_config = config['observation_space']

@@ -1,7 +1,8 @@
 import importlib
-import torch.nn as nn
 
 import stream
+import torch.nn as nn
+
 importlib.reload(stream)
 
 

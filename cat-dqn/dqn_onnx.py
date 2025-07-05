@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class DQNOnnx(nn.Module):
     def __init__(self, optical_net, cat_net):
         super().__init__()

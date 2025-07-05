@@ -1,18 +1,19 @@
-import numpy as np
-import torch
-import torch.nn as nn
-from tensordict import TensorDict
-import torch.nn.functional as F
+import importlib
 import random
-import torch.optim as optim
-from torchrl.data import TensorDictPrioritizedReplayBuffer, LazyTensorStorage
 from collections import deque
 
-import importlib
 import replay_buffer
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from tensordict import TensorDict
+from torchrl.data import LazyTensorStorage, TensorDictPrioritizedReplayBuffer
+
 importlib.reload(replay_buffer)
 
 from replay_buffer import SequenceTensorDictPrioritizedReplayBuffer
+
 
 class DQNAgent:
     def __init__(self, dqn, target_dqn, dqn_config, agent_config, device = "cpu", epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
