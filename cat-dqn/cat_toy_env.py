@@ -19,7 +19,7 @@ class CatToyEnv(AECEnv):
         self.reset_interval = reset_interval  # 1000stepごとにpossible_agentsを初期化
         self.n_agents = n_agents  # possible_agentsの個数
 
-        with open('../cat-game/config/common.json') as f:
+        with open('../cat-game/public/common.json') as f:
             config = json.load(f)
         
         obs_config = config['observation_space']
