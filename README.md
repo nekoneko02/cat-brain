@@ -43,7 +43,10 @@ AIで動く「ねこ」と、プレイヤーが操作する「おもちゃ」で
 - Reactアプリの中にcanvasを埋め込むことで、UIとゲーム画面を組み合わせています。
 
 ## デプロイ方法
-VercelやNetlifyなど静的サイトホスティングサービスで`$env:VERSION="v9"; npm run build`後の`dist/`フォルダをアップロードしてください。
+VercelやNetlifyなど静的サイトホスティングサービスで
+`$env:VERSION="v9"; npm run build`
+`export VERSION="v9" && npm run build`
+後の`dist/`フォルダをアップロードしてください。
 
 ---
 
