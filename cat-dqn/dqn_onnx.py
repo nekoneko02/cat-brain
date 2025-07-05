@@ -23,8 +23,9 @@ class DQNOnnx(nn.Module):
 
         # Sleep branch
         sleep_action = torch.full_like(dqn_action, 8)  # Tensor型で batch サイズ揃える
-        sleep_info = (x[:, -5:, 1] + x[:, -5:, 2]).mean(dim=-1, keepdim=True)  # Tensor
-
+        # infoはダミーの値。どこも見ていない=自分自身を見ているというイメージ
+        sleep_info = x[:, -5:, 0:2]  # [batch_size, sequence_length, 2] 
+        
         # 条件に応じて選ぶ（テンソルベースの分岐）
         option = option.unsqueeze(-1) if option.dim() == 1 else option  # [B, 1]
         action = torch.where(option == 0, dqn_action, sleep_action)

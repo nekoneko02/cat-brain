@@ -11,8 +11,13 @@ AIで動く「ねこ」と、プレイヤーが操作する「おもちゃ」で
    npm install
    ```
 3. 開発サーバーを起動します。
+   - PowerShell
    ```sh
   $env:VERSION="v9"; npm run dev
+   ```
+   - WSL (Linux)
+   ```
+   export VERSION=v9 && npm run dev 
    ```
 4. ブラウザで `http://localhost:5173` を開くとゲームが遊べます。
 
