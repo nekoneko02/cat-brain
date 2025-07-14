@@ -16,10 +16,11 @@ class DQNOnnx(nn.Module):
 
         # DQN branch
         with torch.no_grad():
-            dqn_prob = self.cat_dqn.forward(x)
+            x_for_pre = x[:, :, 0:4]
+            dqn_prob = self.cat_dqn.forward(x_for_pre)
             dqn_q = self.cat_dqn.q_value_adapter(dqn_prob)
             dqn_action = self.cat_dqn.action_adapter(dqn_q)
-            dqn_info = self.cat_dqn.info  # dummy info (Tensor)
+            #dqn_info = self.cat_dqn.info  # dummy info (Tensor)
 
         # Sleep branch
         sleep_action = torch.full_like(dqn_action, 8)  # Tensor型で batch サイズ揃える
@@ -29,6 +30,6 @@ class DQNOnnx(nn.Module):
         # 条件に応じて選ぶ（テンソルベースの分岐）
         option = option.unsqueeze(-1) if option.dim() == 1 else option  # [B, 1]
         action = torch.where(option == 0, dqn_action, sleep_action)
-        info = torch.where(option == 0, dqn_info, sleep_info)
+        #info = torch.where(option == 0, dqn_info, sleep_info)
 
-        return action, info
+        return action#, info

@@ -6,7 +6,7 @@ async function loadModel() {
     let base = window.base_path || '/';
     if (!base.endsWith('/')) base += '/';
     console.log('Loading model...');
-    session = await ort.InferenceSession.create(base+'cat_dqn_policy.onnx');
+    session = await ort.InferenceSession.create(base + 'cat_dqn_policy.onnx');
     console.log('Model loaded:', session);
   } catch (error) {
     console.error('Failed to load model:', error);
@@ -51,7 +51,7 @@ function setGameConfigFromGlobal() {
 function linspace(v_min, v_max, num_atoms) {
   const arr = new Array(num_atoms);
   for (let i = 0; i < num_atoms; i++) {
-      arr[i] = v_min + (v_max - v_min) * (i / (num_atoms - 1));
+    arr[i] = v_min + (v_max - v_min) * (i / (num_atoms - 1));
   }
   return arr;
 }
@@ -69,7 +69,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     super(scene, x, y, 'cat');
     this.setScale(scale);
     this.seq_obs = []
-    for(let seq_i=0; seq_i < model_config.sequence_length; seq_i++){
+    for (let seq_i = 0; seq_i < model_config.sequence_length; seq_i++) {
       this.seq_obs[seq_i] = init_input;
     }
     this.interest = [];
@@ -80,7 +80,7 @@ class Cat extends Phaser.GameObjects.Sprite {
   }
 
   async move(toy, dummy) {
-    const {action, info} = await this.predictAction(this, toy, dummy);
+    const { action, info } = await this.predictAction(this, toy, dummy);
     const selectedAction = actions[action];
     if (selectedAction) {
       this.x += selectedAction.dx * selectedAction.speed;
@@ -133,18 +133,18 @@ class Cat extends Phaser.GameObjects.Sprite {
     const input = [
       cat.x, cat.y,
       toy.x, toy.y,
-      dummy.x, dummy.y,
+      //dummy.x, dummy.y,
       1000 //体力は仮の値
     ];
     this.seq_obs.push(input);
     this.seq_obs.shift();
     const input_sequence = new Float32Array(this.seq_obs.flat())
-    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 7]);
-    const results = await session.run({"obs": tensor}); // [1, action_size, num_atoms]
+    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 5]);
+    const results = await session.run({ "obs": tensor }); // [1, action_size, num_atoms]
 
     const action = results.action.data; // [action_size]
-    let info = results.info ? results.info.data : null;
-    return {action, info};
+    let info = [0, 0]//results.info ? results.info.data : null;
+    return { action, info };
   }
 }
 
@@ -183,7 +183,7 @@ class Toy extends Phaser.GameObjects.Sprite {
   }
 
   move(direction) {
-    const matchingActions = actions_toy.filter(action => 
+    const matchingActions = actions_toy.filter(action =>
       action.name === direction && action.speed === this.currentSpeed
     );
 
@@ -230,7 +230,7 @@ class Dummy extends Phaser.GameObjects.Sprite {
   }
 }
 
-function generateDummyPosition(){
+function generateDummyPosition() {
   //return [getRandomInt(0, environment.width), getRandomInt(0, environment.height)];
   return [getRandomInt(650, 750), getRandomInt(50, 150)];// この周辺の位置だと、パフォーマンスが良い
 
@@ -242,8 +242,8 @@ function generateDummyPosition(){
 class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
-    this.catImageSize = { width: 0, height: 0}; // 初期値
-    this.toyImageSize = { width: 0, height: 0}; // 初期値
+    this.catImageSize = { width: 0, height: 0 }; // 初期値
+    this.toyImageSize = { width: 0, height: 0 }; // 初期値
     this.isImageLoaded = false; // 追加
     this.dummy = null;
     this.isHardMode = false; // デフォルトはイージーモード
@@ -252,16 +252,16 @@ class GameScene extends Phaser.Scene {
   preload() {
     let base = window.base_path || '/';
     if (!base.endsWith('/')) base += '/';
-    this.load.image('cat', base+'cat.png');
-    this.load.image('toy', base+'toy.png');
+    this.load.image('cat', base + 'cat.png');
+    this.load.image('toy', base + 'toy.png');
     this.load.on('filecomplete-image-cat', this.setImageSize, this);
     this.load.on('filecomplete-image-toy', this.setImageSize, this);
   }
-  setImageSize(key, type, data){
-    if(key === 'cat'){
+  setImageSize(key, type, data) {
+    if (key === 'cat') {
       this.catImageSize.width = data.width;
       this.catImageSize.height = data.height;
-    } else if(key === 'toy'){
+    } else if (key === 'toy') {
       this.toyImageSize.width = data.width;
       this.toyImageSize.height = data.height;
     }
@@ -275,16 +275,16 @@ class GameScene extends Phaser.Scene {
       fontFamily: '"Noto Sans JP", "Meiryo", sans-serif'
     }).setOrigin(0.5);
 
-    if(!this.isImageLoaded){
+    if (!this.isImageLoaded) {
       return;
     }
     //スケールを調整
-    const catScale = this.calculateScale(this.catImageSize.width, this.catImageSize.height)*0.2;
+    const catScale = this.calculateScale(this.catImageSize.width, this.catImageSize.height) * 0.2;
     const toyScale = this.calculateScale(this.toyImageSize.width, this.toyImageSize.height);
     const init = [
       400, 400,
       100, 100,
-      ...generateDummyPosition(),
+      //...generateDummyPosition(),
       1000 // 体力の初期値（仮）
     ];
     console.log(init);
@@ -357,7 +357,7 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  calculateScale(imageWidth, imageHeight){
+  calculateScale(imageWidth, imageHeight) {
     const gameWidth = this.game.config.width;
     const gameHeight = this.game.config.height;
 

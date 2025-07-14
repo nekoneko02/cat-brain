@@ -76,7 +76,8 @@ class OpticalCatAgent:
                 probabilities = self.model.forward(x)
                 option = self.model.to_action(probabilities)
         if option == 0:
-            x = self.cat_dqn.to_input(state)
+            state_for_pre = state[0:4]
+            x = self.cat_dqn.to_input(state_for_pre)
             with torch.no_grad():
                 probabilities = self.cat_dqn.forward(x)
                 action = self.cat_dqn.to_action(probabilities)
