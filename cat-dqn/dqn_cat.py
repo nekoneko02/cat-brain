@@ -1,61 +1,57 @@
 import importlib
-
-import stream
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchrl.modules as rlnn
+from torchrl.modules.tensordict_module.actors import DistributionalQValueActor
+from tensordict.nn import TensorDictModule
+from tensordict import TensorDict
 
-importlib.reload(stream)
 import adapter
-
 importlib.reload(adapter)
 
-
 class DQNCat(nn.Module):
-    def __init__(self, dqn_config, pre_cat, device = "cpu"):
+    def __init__(self, dqn_config, device="cpu"):
         super().__init__()
+        self.device = device
+        self.dqn_config = dqn_config
 
-        self.input_adapters = []
-        self.input_adapters.append(adapter.RnnInputAdapter(dqn_config["rnn"]))
-        self.input_adapters.append(adapter.InputAdapter(dqn_config, device))
+        # Adapter定義
+        self.input_adapters = nn.ModuleList([
+            adapter.RnnInputAdapter(dqn_config["rnn"]),
+            adapter.InputAdapter(dqn_config, device)
+        ])
 
+        # ストリーム構築
         streams = []
-        streams.append(stream.RnnStream(7, dqn_config["rnn"]))
-        streams.append(nn.LazyLinear(2))
+        input_dim = dqn_config["input_dim"]
+
+        hidden_dim = dqn_config["rnn"]["hidden_dim"]
+        self.rnn = (nn.GRU(input_dim, hidden_dim, batch_first=True))
+
+        for layer in dqn_config["feature"]:
+            streams.append(nn.LazyLinear(layer))
+            streams.append(nn.ReLU())
+
+        medium_dim = dqn_config["feature"][-1]
+
+        value_stream_config = dqn_config["value_stream"]
+        advantage_stream_config = dqn_config["advantage_stream"]
+        num_atoms = dqn_config["categorical"]["num_atoms"]
+        self.value_stream = CategoricalStream(medium_dim, value_stream_config, num_atoms)
+        self.advantage_stream = CategoricalStream(medium_dim, advantage_stream_config, num_atoms)
+
         self.streams = nn.ModuleList(streams)
-        self.pre_cat = pre_cat
-        self.is_factorized = pre_cat.is_factorized
+        self.q_value_adapter = adapter.QValueAdapter(dqn_config["categorical"])  # 分布→期待値用
+        self.action_adapter = adapter.ActionAdapter()
+        self.temperature = dqn_config.get("temperature", 1.0)
 
-        self.q_value_adapter = adapter.QValueAdapter(dqn_config["categorical"]) if not self.is_factorized else adapter.QValueAdapterMultiDim(dqn_config["categorical"])
-        self.action_adapter = adapter.ActionAdapter() if not self.is_factorized else adapter.ActionMultiDimAdapter()
-        self.temperature = dqn_config["temperature"]
-
-    def parameters(self):
-        params = []
-        for stream in self.streams:
-            params.extend(stream.parameters())
-        #params.extend(self.pre_cat.parameters())
-        return params
-
-    def forward(self, x):
-        obs = x[:, -5:, :] # [batch_size, sequence_length, obs_space]
+    def forward(self, obs):  # obs: torch.Tensor [batch_size, seq, obs_dim]
+        x = obs
+        x = self._forward_rnn(x)
         for stream in self.streams:
             x = stream(x)
-        x = F.softmax(x / self.temperature, dim = -1) # 温度付きsoftmax
-        obs1 = obs[:, :, 2:4]  # [batch_size, sequence_length, 2]
-        obs2 = obs[:, :, 4:6]  # [batch_size, sequence_length, 2]
-        if self.training:
-            # 学習時はattention_weighted_sum
-            attention_weighted_sum = x[:, 0:1].unsqueeze(1) * obs1 + x[:, 1:2].unsqueeze(1) * obs2  # [batch_size, sequence_length, 2]
-            info = attention_weighted_sum
-        else:
-            # 推論時は確率最大のものを決定論的に選択
-            probs = x  # [batch_size, 2]
-            sampled = torch.argmax(probs, dim=1, keepdim=True)  # [batch_size, 1]
-            info = torch.where(sampled == 0, obs1, obs2)  # [batch_size, sequence_length, 2]
-        x = torch.cat([obs[:, :, 0:2], info], dim=-1) # [batch_size, sequence_length, 4]
-        self.info = info
-        x = self.pre_cat(x)
+        x = self._forward_dueling(x)
         return x
 
     def to_input(self, x):
@@ -64,10 +60,43 @@ class DQNCat(nn.Module):
         return x
 
     def to_action(self, probabilities):
-        return self.pre_cat.to_action(probabilities)
+        q_values = self.q_value_adapter(probabilities)
+        actions = self.action_adapter(q_values)
+        return actions
 
     def get_support(self):
         return self.q_value_adapter.z_support
     
+    def _forward_rnn(self, x):
+        x, _ = self.rnn(x, None)
+        return x[:,-1,:]
+        
+    def _forward_dueling(self, x):
+        value_output = self.value_stream(x)
+        advantage_output = self.advantage_stream(x)
+        q_atoms = value_output + advantage_output - advantage_output.mean(dim=1, keepdim=True)
+        probabilities = F.softmax(q_atoms, dim=2)
+        return probabilities
+    
+
+class CategoricalStream(nn.Module):
+    def __init__(self, input_dim, layer_configs, num_atoms):
+        super().__init__()
+        self.num_atoms = num_atoms
+        layers = []
+        for layer in layer_configs[:-1]:
+            layers.append(rlnn.NoisyLinear(input_dim, layer))
+            layers.append(nn.ReLU())
+            input_dim = layer
+        layers.append(rlnn.NoisyLinear(input_dim, layer_configs[-1] * num_atoms))
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        output = self.network(x).view(batch_size, -1, self.num_atoms)
+        return output
+    
     def reset_noise(self):
-        self.pre_cat.reset_noise()
+        for layer in self.network:
+            if isinstance(layer, rlnn.NoisyLinear):
+                layer.reset_noise()

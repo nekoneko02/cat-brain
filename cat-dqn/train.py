@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def train_dqn_no_end(agent_dict, train_agents, env, config):
+def train_dqn(agent, env, config):
     total_step = 0
     num_episodes = 0
     training_steps = config["training_steps"]
@@ -9,174 +9,68 @@ def train_dqn_no_end(agent_dict, train_agents, env, config):
     update_target_steps = config["update_target_steps"]
     batch_size = config["batch_size"]
 
-    total_rewards = {agent: 0.0 for agent in agent_dict.keys()}
+    total_reward = 0.0
     steps = 0
     while total_step < training_steps:
-        obs = env.reset()
-        prev_obs = {agent: obs for agent in train_agents} # 前回の観測を保存
-        prev_action = {agent: None for agent in train_agents}
-        prev_total_reward = {agent: 0.0 for agent in env.candidates} # printでも使うため、env.agentsに対して取得
+        obs, _ = env.reset()
+        done = False
 
-        for agent in env.agent_iter():
-            if str(agent).startswith("dummy"):
-                # dummyエージェントは行動しない
-                action = None
-                env.step(action)
-                continue
+        while not done:
+            steps += 1
 
-            obs, total_reward, terminated, truncated, _ = env.last()
+            option, action = agent.act(obs)
+            next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
+            total_reward += reward
 
-            if done:
-                action = None  # No action needed if agent is done
-                total_rewards[agent] += total_reward
-                steps += env.get_step_count()
-            else:
-                if agent == "optical-cat":
-                    option, action = agent_dict[agent].act(obs)
-                else:
-                    action = agent_dict[agent].act(obs) 
-                agent_dict[agent].reset_hidden_state() # 行動を選択するたびにノイズをリセット
+            
+            # 前回行動の結果が今回のループで得られたので、ここで保存できる
+            agent.store_experience(
+                obs,         # s
+                option,      # a
+                reward,      # r (現在のループで得られた報酬)
+                next_obs,    # s' (次状態)
+                float(done)  # done
+            )
+            # ここでreplayを行う
+            if env.step_count % replay_interval == 0:
+                agent.replay(batch_size)
 
-            env.step(action)
-            if (agent in train_agents) and (prev_action[agent] is not None):
-                # 前回行動の結果が今回のループで得られたので、ここで保存できる
-                agent_dict[agent].store_experience(
-                    prev_obs[agent],         # s
-                    prev_action[agent],      # a
-                    total_reward - prev_total_reward[agent],      # r (現在のループで得られた報酬)
-                    obs,                     # s' (次状態)
-                    float(terminated)              # done
-                )
-                # ここでreplayを行う
-                if env.get_step_count() % replay_interval == 0:
-                    agent_dict[agent].replay(batch_size)
-
-            if done or env.get_step_count() % 1000 == 0:
+            if done or env.step_count % 1000 == 0:
                 formated_obs = ", ".join([f"{x:.2f}" for x in obs])
-                formated_reward = f"{(total_reward - prev_total_reward[agent]):+7.2f}"
-                print(f"{agent:<7} with steps {env.get_step_count():>5}, reward {formated_reward}, state is {formated_obs}")
-
-            prev_action[agent] = option if agent == "optical-cat" else action  # 次の行動を更新
-            prev_total_reward[agent] = total_reward # 次の報酬を更新
-            prev_obs[agent] = obs
+                formated_reward = f"{(reward):+7.2f}"
+                print(f"steps {env.step_count:>5}, reward {formated_reward}, state is {formated_obs}")
+            
+            obs = next_obs
 
             # ターゲットネットワーク更新
-            if env.get_step_count() % (update_target_steps * 4000) == 0:
-                for agent in agent_dict.values():
-                    agent.update_target_model()
+            if env.step_count % (update_target_steps * 4000) == 0:
+                agent.update_target_model()
         num_episodes += 1
         # ログ出力
-        print(f"+++++++ Episode {num_episodes}: " + ", ".join([f"{a}: {r / update_target_steps:.2f}" for a, r in total_rewards.items()]), steps / update_target_steps)
-        total_rewards = {agent: 0.0 for agent in total_rewards.keys()}
+        print(f"+++++++ Episode {num_episodes}: " + ", ".join([f"{total_reward / update_target_steps:.2f}"]), steps / update_target_steps)
+        total_reward = 0.0
         steps = 0
 
-def train_dqn(agent_dict, train_agents, env, config):
-    num_iterations = config["num_iterations"]
-    num_episodes_per_iteration = config["num_episodes_per_iteration"]
-    replay_interval = config["replay_interval"]
-    update_target_steps = config["update_target_steps"]
-    batch_size = config["batch_size"]
-
-    total_rewards = {agent: 0.0 for agent in agent_dict.keys()}
-    steps = 0
-    for iteration in range(num_iterations):
-        for episode in range(num_episodes_per_iteration):
-            obs = env.reset()
-            prev_obs = {agent: obs for agent in train_agents} # 前回の観測を保存
-            prev_action = {agent: None for agent in train_agents}
-            prev_total_reward = {agent: 0.0 for agent in env.candidates} # printでも使うため、env.agentsに対して取得
-
-            for agent in env.agent_iter():
-                if str(agent).startswith("dummy"):
-                    # dummyエージェントは行動しない
-                    action = None
-                    env.step(action)
-                    continue
-
-                obs, total_reward, terminated, truncated, _ = env.last()
-                done = terminated or truncated
-
-                if done:
-                    action = None  # No action needed if agent is done
-                    total_rewards[agent] += total_reward
-                    steps += env.get_step_count()
-                else:
-                    if agent == "optical-cat":
-                        option, action = agent_dict[agent].act(obs)
-                    else:
-                        action = agent_dict[agent].act(obs) 
-
-                env.step(action)
-                if (agent in train_agents) and (prev_action[agent] is not None):
-                    # 前回行動の結果が今回のループで得られたので、ここで保存できる
-                    agent_dict[agent].store_experience(
-                        prev_obs[agent],         # s
-                        prev_action[agent],      # a
-                        total_reward - prev_total_reward[agent],      # r (現在のループで得られた報酬)
-                        obs,                     # s' (次状態)
-                        float(terminated)              # done
-                    )
-                    # ここでreplayを行う
-                    if env.get_step_count() % replay_interval == 0:
-                        agent_dict[agent].replay(batch_size)
-
-                if done or env.get_step_count() % 1000 == 0:
-                    formated_obs = ", ".join([f"{x:.2f}" for x in obs])
-                    formated_reward = f"{(total_reward - prev_total_reward[agent]):+7.2f}"
-                    print(f"{agent:<7} with steps {env.get_step_count():>5}, reward {formated_reward}, state is {formated_obs}")
-
-                prev_action[agent] = option if agent == "optical-cat" else action  # 次の行動を更新# 次の行動を更新
-                prev_total_reward[agent] = total_reward # 次の報酬を更新
-                prev_obs[agent] = obs
-
-        # ログ出力
-        if iteration % update_target_steps == 0:
-            print(f"+++++++ Iteration {iteration}: " + ", ".join([f"{a}: {r / update_target_steps:.2f}" for a, r in total_rewards.items()]), steps / update_target_steps)
-            total_rewards = {agent: 0.0 for agent in total_rewards.keys()}
-            steps = 0
-
-        # ターゲットネットワーク更新
-        if iteration % update_target_steps == 0:
-            for agent in agent_dict.values():
-                agent.update_target_model()
-
-def evaluate_model(agent_dict, eval_env, n_eval_episodes=10):
-    reward_sums = {agent_name: [] for agent_name in agent_dict.keys()}
+def evaluate_model(agent, eval_env, n_eval_episodes=10):
+    reward_sum = []
 
     for _ in range(n_eval_episodes):
         env = eval_env  # 環境がreset可能で、内部状態が共有でないと仮定
-        env.reset()
-        episode_rewards = {agent_name: 0.0 for agent_name in agent_dict.keys()}
+        obs, _ = env.reset()
+        episode_reward = 0.0
+        done = False
+        while not done:
+            option, action = agent.act(obs)
+            next_obs, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
 
-        for agent in env.agent_iter():
-            if str(agent).startswith("dummy"):
-                # dummyエージェントは行動しない
-                action = None
-                env.step(action)
-                continue
-            obs, reward, termination, truncation, info = env.last()
-            done = termination or truncation
+            obs = next_obs
+            episode_reward += reward  # 各agentごとに報酬を記録
 
-            if done:
-                action = None  # 終了したら行動不要
-            else:
-                if agent == "optical-cat":
-                    option, action = agent_dict[agent].act(obs)
-                else:
-                    action = agent_dict[agent].act(obs)  # 各エージェントに行動させる
-                agent_dict[agent].reset_hidden_state()  # 行動を選択するたびにノイズをリセット
-
-            env.step(action)
-            episode_rewards[agent] += reward  # 各agentごとに報酬を記録
-
-        for agent_name in reward_sums:
-            reward_sums[agent_name].append(episode_rewards[agent_name])
+        reward_sum.append(episode_reward)
 
     # 統計量（平均・標準偏差）を返す
-    mean_std_rewards = {
-        agent: (np.mean(rewards), np.std(rewards))
-        for agent, rewards in reward_sums.items()
-    }
+    mean_std_reward = (np.mean(reward), np.std(reward))
 
-    return mean_std_rewards
+    return mean_std_reward

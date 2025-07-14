@@ -1,8 +1,6 @@
 import importlib
 import random
 from collections import deque
-
-import replay_buffer
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,12 +8,16 @@ import torch.optim as optim
 from tensordict import TensorDict
 from torchrl.data import LazyTensorStorage, TensorDictPrioritizedReplayBuffer
 
+import replay_buffer
 importlib.reload(replay_buffer)
 
 from replay_buffer import SequenceTensorDictPrioritizedReplayBuffer
 
+import cat_actions
+importlib.reload(cat_actions)
 
-class DQNAgent:
+
+class CatAgent:
     def __init__(self, dqn, target_dqn, dqn_config, agent_config, device = "cpu", epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
         self.gamma = agent_config["discount_rate"]
         self.device = device
@@ -30,26 +32,26 @@ class DQNAgent:
         self.target_model = target_dqn
         learning_parameter = self.model.parameters()
 
+        self.cat_actions = [
+            cat_actions.chase.Chase(),
+            cat_actions.stop.Stop()
+        ]
+
         self.optimizer = optim.Adam(learning_parameter, lr=agent_config["learning_rate"])
         self.loss_fn = nn.MSELoss()
 
         self.has_rnn = "rnn" in dqn_config
 
         buffer_config = agent_config["buffer"]
-        if self.has_rnn:
-            self.seq_obs = deque(maxlen=dqn_config["rnn"]["sequence_length"])
-            self.memory = SequenceTensorDictPrioritizedReplayBuffer(
-                storage=LazyTensorStorage(buffer_config["size"], device = device),
-                alpha=buffer_config["alpha"],
-                beta=buffer_config["beta"],
-                sequence_length=dqn_config["rnn"]["sequence_length"],
-            )
-        else:
-            self.memory = TensorDictPrioritizedReplayBuffer(
-                storage=LazyTensorStorage(buffer_config["size"], device = device),
-                alpha=buffer_config["alpha"],
-                beta=buffer_config["beta"],
-            )
+        self.seq_obs = deque(maxlen=dqn_config["rnn"]["sequence_length"])
+        
+        self.memory = SequenceTensorDictPrioritizedReplayBuffer(
+            storage=LazyTensorStorage(buffer_config["size"], device = device),
+            alpha=buffer_config["alpha"],
+            beta=buffer_config["beta"],
+            sequence_length=dqn_config["rnn"]["sequence_length"],
+        )
+
         self.update_target_model()
 
     def update_target_model(self):
@@ -67,19 +69,24 @@ class DQNAgent:
 
     def act(self, state):
         if random.random() <= self.epsilon:
-            # action_spaceが2次元の場合
-            if self.action_space.shape == (2,):
-                actions = self.action_space.sample()
-                return actions[0], actions[1]
-            # action_spaceが1次元の場合
-            return self.action_space.sample()
-
-        x = state
-        x = self.model.to_input(x)
-        with torch.no_grad():
-            probabilities = self.model.forward(x)
-            action = self.model.to_action(probabilities)
-        return action
+            option = self.action_space.sample()
+        else:
+            x = state
+            x = self.model.to_input(x)
+            with torch.no_grad():
+                probabilities = self.model.forward(x)
+                option = self.model.to_action(probabilities)
+        
+        action = self.cat_actions[option.item()](torch.Tensor(state))
+        action_dict = {
+            "dx": action[0].item(),
+            "dy": action[1].item()
+        }
+        
+        return (
+            option,
+            action_dict
+        )
 
     def reset_hidden_state(self):
         self.hidden_state = None
@@ -96,22 +103,16 @@ class DQNAgent:
         next_states = batch['next_state']
         dones = batch['done'].squeeze()
 
-        if self.has_rnn:
-            actions = actions[:, -1] # [batch_size, sequence_length]  -> [batch_size] (最後の一つだけ利用する)
-            rewards = rewards[:, -1]
-            dones = dones[:, -1]
+        actions = actions[:, -1] # [batch_size, sequence_length]  -> [batch_size] (最後の一つだけ利用する)
+        rewards = rewards[:, -1]
+        dones = dones[:, -1]
         
         return states, actions, rewards, next_states, dones, info
     
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
-        if self.model.is_factorized:
-            self._replay_factorized(batch_size)
-        else:
-            self._replay_simple(batch_size)
-
-    def _replay_simple(self, batch_size):
+        
         states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
         indices, weights = info['index'], info['_weight']
         weights = torch.FloatTensor(weights).to(self.device)  # Tensorに変換
@@ -140,59 +141,6 @@ class DQNAgent:
         # 優先度の更新
         td_errors = kl_div
         # 優先度のクリッピング
-        priority = torch.clamp(td_errors.detach(), min=1.0, max=1e3)
-        self.memory.update_priority(indices, priority)
-
-        # 損失計算（重み適用）
-        loss = (weights * td_errors).mean()
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        # ε減少
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-
-    def _replay_factorized(self, batch_size):
-        states, actions, rewards, next_states, dones, info = self._get_sarsa(batch_size)
-        actions_speed, actions_direction = actions[:, 0], actions[:, 1]
-        indices, weights = info['index'], info['_weight']
-        weights = torch.FloatTensor(weights).to(self.device)
-
-        # 現在の分布取得
-        probabilities_speed, probabilities_direction = self.model.forward(states)
-
-        with torch.no_grad():
-            next_probs_speed, next_probs_direction = self.target_model.forward(next_states)
-
-        batch_indices = torch.arange(batch_size, device=self.device)
-
-        # 選択したアクションの分布を取得
-        selected_probs_speed = probabilities_speed[batch_indices, actions_speed]  # [batch_size, num_atoms]
-        selected_probs_direction = probabilities_direction[batch_indices, actions_direction]
-
-        # 次状態のQ値の計算
-        next_q_values_speed = torch.sum(next_probs_speed * self.model.get_support(), dim=-1)
-        next_q_values_direction = torch.sum(next_probs_direction * self.model.get_support(), dim=-1)
-
-        # 次状態のアクション選択
-        next_actions_speed = torch.argmax(next_q_values_speed, dim=1)
-        next_actions_direction = torch.argmax(next_q_values_direction, dim=1)
-
-        # 次状態の分布を選択
-        next_dist_speed = next_probs_speed[batch_indices, next_actions_speed]
-        next_dist_direction = next_probs_direction[batch_indices, next_actions_direction]
-
-        # プロジェクション
-        projected_dist_speed = self.project_distribution(rewards, dones, next_dist_speed)
-        projected_dist_direction = self.project_distribution(rewards, dones, next_dist_direction)
-
-        # 損失計算
-        kl_div_speed = F.kl_div(torch.log(selected_probs_speed + 1e-8), projected_dist_speed, reduction='none').sum(dim=1)
-        kl_div_direction = F.kl_div(torch.log(selected_probs_direction + 1e-8), projected_dist_direction, reduction='none').sum(dim=1)
-
-        # 優先度更新
-        td_errors = (kl_div_speed + kl_div_direction)
         priority = torch.clamp(td_errors.detach(), min=1.0, max=1e3)
         self.memory.update_priority(indices, priority)
 
@@ -253,22 +201,10 @@ class DQNAgent:
         return projected_distribution
     def save_model(self, filepath):
         checkpoint = {
-            "model_state_dict": self.model.state_dict(),
-            "target_model_state_dict": self.target_model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "epsilon": self.epsilon,
-            "epsilon_min": self.epsilon_min,
-            "epsilon_decay": self.epsilon_decay,
-            "gamma": self.gamma
+            "model_state_dict": self.model.state_dict()
         }
         torch.save(checkpoint, filepath)
 
     def load_model(self, filepath):
         checkpoint = torch.load(filepath, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.target_model.load_state_dict(checkpoint["target_model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.epsilon = checkpoint.get("epsilon", self.epsilon)
-        self.epsilon_min = checkpoint.get("epsilon_min", self.epsilon_min)
-        self.epsilon_decay = checkpoint.get("epsilon_decay", self.epsilon_decay)
-        self.gamma = checkpoint.get("gamma", self.gamma)
