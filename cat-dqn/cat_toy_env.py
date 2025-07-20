@@ -138,11 +138,6 @@ class CatToyEnv(Env):
             reward += toy_energy
             self.cat_energy += toy_energy
             self._init_runner()
-        
-        # stopアクションを探索アクションと見立てる
-        # 探索アクションを取ると、runnerのリセットが早まる
-        if all([movement == 0 for movement in action.values()]):
-            self.step_count_from_init_runner += self.reset_interval//10
 
         # エネルギー消費
         energy_consumption = self.chaser.energy_consumption(action)

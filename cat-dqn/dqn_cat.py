@@ -2,57 +2,128 @@ import importlib
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchrl.modules as rlnn
-from torchrl.modules.tensordict_module.actors import DistributionalQValueActor
-from tensordict.nn import TensorDictModule
 from tensordict import TensorDict
+from tensordict.nn import TensorDictModule, TensorDictSequential
+from torchrl.modules import DistributionalQValueActor
 
 import adapter
 importlib.reload(adapter)
 
-class DQNCat(nn.Module):
-    def __init__(self, dqn_config, device="cpu"):
+
+class DuelingCategoricalHead(nn.Module):
+    def __init__(self, in_dim, hidden_dim, num_actions, num_atoms):
         super().__init__()
-        self.device = device
-        self.dqn_config = dqn_config
+        self.num_actions = num_actions
+        self.num_atoms = num_atoms
+
+        self.value_stream = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, num_atoms)
+        )
+
+        self.advantage_stream = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, num_actions * num_atoms)
+        )
+
+    def forward(self, x):
+        batch_size = x.size(0)
+
+        value = self.value_stream(x)  # [B, num_atoms]
+        advantage = self.advantage_stream(x).view(batch_size, self.num_actions, self.num_atoms)  # [B, A, N]
+
+        value = value.unsqueeze(1)  # [B, 1, N]
+        q_atoms = value + advantage - advantage.mean(dim=1, keepdim=True)  # [B, A, N]
+
+        return q_atoms
+
+
+class DQNCat(nn.Module):
+    def __init__(self, dqn_config):
+        super().__init__()
+        input_dim = dqn_config["input_dim"]
+        hidden_dim = dqn_config["rnn"]["hidden_dim"]
+        self.num_actions = dqn_config["num_actions"]
+        self.num_atoms = dqn_config["categorical"]["num_atoms"]
+        self.vmin = dqn_config["categorical"]["v_min"]
+        self.vmax = dqn_config["categorical"]["v_max"]
 
         # Adapter定義
         self.input_adapters = nn.ModuleList([
             adapter.RnnInputAdapter(dqn_config["rnn"]),
-            adapter.InputAdapter(dqn_config, device)
+            adapter.InputAdapter(dqn_config)
         ])
 
         # ストリーム構築
         streams = []
-        input_dim = dqn_config["input_dim"]
 
-        hidden_dim = dqn_config["rnn"]["hidden_dim"]
-        self.rnn = (nn.GRU(input_dim, hidden_dim, batch_first=True))
+        # RNN
+        self.rnn = nn.GRU(input_dim, hidden_dim, batch_first=True)
 
-        for layer in dqn_config["feature"]:
-            streams.append(nn.LazyLinear(layer))
-            streams.append(nn.ReLU())
+        feature_net = []
+        for layer in dqn_config["feature_layers"]:
+            feature_net.append(nn.LazyLinear(layer))
+            feature_net.append(nn.ReLU())
+        self.feature_net = nn.Sequential(*feature_net)
 
-        medium_dim = dqn_config["feature"][-1]
+        medium_dim = dqn_config["feature_layers"][-1]
 
-        value_stream_config = dqn_config["value_stream"]
-        advantage_stream_config = dqn_config["advantage_stream"]
-        num_atoms = dqn_config["categorical"]["num_atoms"]
-        self.value_stream = CategoricalStream(medium_dim, value_stream_config, num_atoms)
-        self.advantage_stream = CategoricalStream(medium_dim, advantage_stream_config, num_atoms)
+        # Dueling categorical head
+        self.head = DuelingCategoricalHead(
+            in_dim=medium_dim,
+            hidden_dim=dqn_config["head_hidden_dim"],
+            num_actions=self.num_actions,
+            num_atoms=self.num_atoms
+        )
 
-        self.streams = nn.ModuleList(streams)
-        self.q_value_adapter = adapter.QValueAdapter(dqn_config["categorical"])  # 分布→期待値用
-        self.action_adapter = adapter.ActionAdapter()
-        self.temperature = dqn_config.get("temperature", 1.0)
+        # Z support
+        self.support = torch.linspace(self.vmin, self.vmax, self.num_atoms)
 
-    def forward(self, obs):  # obs: torch.Tensor [batch_size, seq, obs_dim]
-        x = obs
-        x = self._forward_rnn(x)
-        for stream in self.streams:
-            x = stream(x)
-        x = self._forward_dueling(x)
-        return x
+        # TensorDictModule: 入力 -> logits
+        self.module = TensorDictSequential(
+            TensorDictModule(
+                module=self._forward_logic,
+                in_keys=["observation"],
+                out_keys=["logits"]
+            ),
+            TensorDictModule(
+                lambda logit: F.log_softmax(logit, dim=-2),
+                in_keys=["logits"],
+                out_keys=["action_value"]),
+        )
+
+        # DistributionalQValueActor: logits -> action
+        self.actor = DistributionalQValueActor(
+            module=self.module,
+            in_keys=["observation"],
+            support=self.support,
+            action_space="categorical",
+            action_value_key="action_value",
+            make_log_softmax=False
+        )
+
+    def _forward_logic(self, obs_seq: torch.Tensor) -> torch.Tensor:
+        # obs_seq # [batch_size, seq_length, observation_space]
+        rnn_out, _ = self.rnn(obs_seq)
+        last_feat = rnn_out[:, -1, :]
+        features = self.feature_net(last_feat)
+        logits = self.head(features)  # [B, A, N]
+        logits = logits.permute(0, 2, 1)  # [B, N, A] に変換（DistributionalQValueActor 用）
+        return logits
+
+    def forward(self, obs_seq: torch.Tensor) -> TensorDict:
+        td = TensorDict({"observation": obs_seq}, batch_size=obs_seq.shape[:1])
+        td = self.actor(td)  # ここで "action" が追加される
+        return td
+
+    def get_q_values(self, obs_seq: torch.Tensor) -> torch.Tensor:
+        td = TensorDict({"observation": obs_seq}, batch_size=obs_seq.shape[:1])
+        logits = self.module(td)["logits"]
+        probs = F.softmax(logits, dim=-1)
+        q = (probs * self.support.to(logits.device)).sum(dim=-1)
+        return q
 
     def to_input(self, x):
         for adapter in self.input_adapters:
@@ -63,40 +134,3 @@ class DQNCat(nn.Module):
         q_values = self.q_value_adapter(probabilities)
         actions = self.action_adapter(q_values)
         return actions
-
-    def get_support(self):
-        return self.q_value_adapter.z_support
-    
-    def _forward_rnn(self, x):
-        x, _ = self.rnn(x, None)
-        return x[:,-1,:]
-        
-    def _forward_dueling(self, x):
-        value_output = self.value_stream(x)
-        advantage_output = self.advantage_stream(x)
-        q_atoms = value_output + advantage_output - advantage_output.mean(dim=1, keepdim=True)
-        probabilities = F.softmax(q_atoms, dim=2)
-        return probabilities
-    
-
-class CategoricalStream(nn.Module):
-    def __init__(self, input_dim, layer_configs, num_atoms):
-        super().__init__()
-        self.num_atoms = num_atoms
-        layers = []
-        for layer in layer_configs[:-1]:
-            layers.append(rlnn.NoisyLinear(input_dim, layer))
-            layers.append(nn.ReLU())
-            input_dim = layer
-        layers.append(rlnn.NoisyLinear(input_dim, layer_configs[-1] * num_atoms))
-        self.network = nn.Sequential(*layers)
-
-    def forward(self, x):
-        batch_size = x.shape[0]
-        output = self.network(x).view(batch_size, -1, self.num_atoms)
-        return output
-    
-    def reset_noise(self):
-        for layer in self.network:
-            if isinstance(layer, rlnn.NoisyLinear):
-                layer.reset_noise()
