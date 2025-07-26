@@ -52,16 +52,16 @@
   },
   "observation_space": {
     "optical-cat": {
-      "description": "cat, toy, and dummy position, and cat.energy",
-      "shape": [7]
+      "description": "Organized state space: physical relationships (9) + internal state (3) + environmental factors (3) + action history (2) = 17 dimensions",
+      "shape": [17]
     },
     "cat": {
-      "description": "cat, toy, and dummy position, and cat.energy",
-      "shape": [7]
+      "description": "Organized state space: physical relationships (9) + internal state (3) + environmental factors (3) + action history (2) = 17 dimensions",
+      "shape": [17]
     },
     "pre-cat": {
-      "description": "cat, toy position",
-      "shape": [4]
+      "description": "Organized state space: physical relationships (9) + internal state (3) + environmental factors (3) + action history (2) = 17 dimensions",
+      "shape": [17]
     },
     "toy": {
       "description": "cat, toy position and grass info",

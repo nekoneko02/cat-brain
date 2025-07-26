@@ -8,6 +8,9 @@ from IPython.display import clear_output
 from pettingzoo import AECEnv
 from pettingzoo.utils.agent_selector import agent_selector
 
+# Issue #127: 状態空間の整理
+from state_space import StateSpace
+
 
 class CatToyEnv(AECEnv):
     metadata = {"render_modes": ["human"], "name": "cat_toy_env_v0"}
@@ -83,6 +86,12 @@ class CatToyEnv(AECEnv):
         self.glow_grass = 1/(self.width*self.height)
         self.cat_obs_by_toy = [0,0] # toyから見たcatの位置
         self.cat_energy = 1000
+        
+        # Issue #127: 状態空間の整理 - 組織化された状態空間を初期化
+        self.state_spaces = {
+            agent: StateSpace(max_history_length=10) for agent in self.candidates
+        }
+        self.previous_actions = {agent: None for agent in self.candidates}
 
     def _collision_threshold(self, agent1, agent2):
         agent1_size = (self.agent_size[agent1]['width'] + self.agent_size[agent1]['height']) / 2
@@ -104,13 +113,51 @@ class CatToyEnv(AECEnv):
 
     def observe(self, agent):
         if agent == self.chaser:
-            obs = []
-            for a in self.possible_agents:
-                pos = self.positions[a] 
-                obs += pos
-            if agent in ["cat", "optical-cat"]:
-                obs.append(self.cat_energy) # catのエネルギーを追加
-            return np.array(obs, dtype=np.float32)
+            # Issue #127: ねこエージェントの状態空間を組織化
+            if agent in ["cat", "optical-cat", "pre-cat"]:
+                # おもちゃの位置を取得（最初に見つかったランナーを使用）
+                toy_pos = None
+                for possible_agent in self.possible_agents:
+                    if possible_agent == self.runner:
+                        toy_pos = self.positions[possible_agent]
+                        break
+                
+                # おもちゃが見つからない場合は、デフォルト位置を使用
+                if toy_pos is None:
+                    toy_pos = [self.width // 2, self.height // 2]
+                
+                cat_pos = self.positions[agent]
+                
+                # エネルギー変化を計算
+                energy_change = 0
+                if hasattr(self, '_last_cat_energy'):
+                    energy_change = self.cat_energy - self._last_cat_energy
+                self._last_cat_energy = self.cat_energy
+                
+                # 組織化された状態空間を使用
+                state_vector = self.state_spaces[agent].get_complete_state(
+                    cat_pos=tuple(cat_pos),
+                    toy_pos=tuple(toy_pos),
+                    max_distance=self.max_distance,
+                    current_action=self.previous_actions.get(agent),
+                    energy_change=energy_change,
+                    toy_appeared=False,  # TODO: 実際の新しいおもちゃ登場検知に置き換え
+                    rest_time=0.0,       # TODO: 実際の休憩時間計算に置き換え
+                    play_time=0.0,       # TODO: 実際の遊び時間計算に置き換え
+                    loud_sound=False,    # TODO: 実際の環境音検知に置き換え
+                    obstacles_present=False,  # TODO: 実際の障害物検知に置き換え
+                    lighting_level=1.0   # TODO: 実際の照明レベル検知に置き換え
+                )
+                return state_vector
+            else:
+                # 従来の状態空間（後方互換性のため）
+                obs = []
+                for a in self.possible_agents:
+                    pos = self.positions[a] 
+                    obs += pos
+                if agent in ["cat", "optical-cat"]:
+                    obs.append(self.cat_energy) # catのエネルギーを追加
+                return np.array(obs, dtype=np.float32)
 
         elif agent == self.runner:
             toy_pos = self.positions[self.runner]
@@ -169,11 +216,21 @@ class CatToyEnv(AECEnv):
         self.cat_obs_by_toy = self.positions[self.chaser]
         self.grass = np.full((self.width, self.height), 1.0, dtype=np.float64)
         self.cat_energy = 1000
+        
+        # Issue #127: 状態空間をリセット
+        for agent in self.candidates:
+            if agent in self.state_spaces:
+                self.state_spaces[agent].reset()
+        self.previous_actions = {agent: None for agent in self.candidates}
+        self._last_cat_energy = self.cat_energy
 
         return self.observe(self.agent_selection)
 
     def step(self, action):
         agent = self.agent_selection
+        
+        # Issue #127: 行動を記録
+        self.previous_actions[agent] = action
 
         if self.terminations[agent] or self.truncations[agent]:
             self._was_dead_step(action)
