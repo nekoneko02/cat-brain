@@ -19,4 +19,4 @@ class Toy:
     
     def get_energy(self):
         # トイのエネルギーを返す
-        return 100  # 例: トイのエネルギーは常に100とする
+        return 1000  # 例: トイのエネルギーは常に100とする

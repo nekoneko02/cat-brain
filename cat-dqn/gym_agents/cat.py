@@ -10,7 +10,7 @@ class Cat:
         return self.vel
 
     def get_fatigue(self):
-        return max(0.0, min(1.0, self.energy / 1000.0))
+        return max(0.0, self.energy / 1000.0)
     
     def energy_consumption(self, action):
         # PreCatのエネルギー消費を計算
@@ -19,4 +19,4 @@ class Cat:
     
     def basal_metabolic_rate(self):
         # PreCatの基礎代謝を計算
-        return 0.05  # 基礎代謝は常に0.05とする
+        return 0.25  # 基礎代謝は常に0.05とする

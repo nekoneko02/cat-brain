@@ -14,4 +14,4 @@ class Dummy:
         return self.vel
     
     def get_energy(self):
-        return -100  # 例: dummyを捕まえると負の報酬
+        return -1000  # 例: dummyを捕まえると負の報酬

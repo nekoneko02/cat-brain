@@ -138,7 +138,7 @@ class CatToyEnv(Env):
         return obs, reward, terminated, truncated, info
 
     def _step_cat(self, action):
-        reward = 0.0
+        reward = 1.0
         terminated = False
         truncated = False
         info = {}
@@ -201,10 +201,15 @@ class CatToyEnv(Env):
         if self.step_count % 30 != 0:
             return
         grid_size = 30
+        scale = grid_size / max(self.width, self.height)
         grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
-        cat_x, cat_y = self.positions[self.chaser]
-        toy_x, toy_y = self.positions[self.current_runner]
+        original_cat_x, original_cat_y = self.positions[self.chaser]
+        cat_x = int(original_cat_x * scale)
+        cat_y = int(original_cat_y * scale)
+        original_toy_x, original_toy_y = self.positions[self.current_runner]
+        toy_x = int(original_toy_x * scale)
+        toy_y = int(original_toy_y * scale)
 
         # render専用の中心座標を管理
         if not hasattr(self, "_render_center"):
@@ -245,7 +250,7 @@ class CatToyEnv(Env):
             print(" ".join(row))
         print("-" * (2 * grid_size))
         print(
-            f"count: {self.step_count}, positions: cat: ({cat_x}, {cat_y}), toy: ({toy_x}, {toy_y}), center: ({center_x}, {center_y})"
+            f"count: {self.step_count}, positions: cat: ({original_cat_x}, {original_cat_y}), toy: ({original_toy_x}, {original_toy_y}))"
         )
         time.sleep(0.01)
 
