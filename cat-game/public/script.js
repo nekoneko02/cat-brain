@@ -89,19 +89,24 @@ class Cat extends Phaser.GameObjects.Sprite {
   async predictAction(cat, toy) {
     if (!session) throw new Error('Model not loaded yet!');
 
-    const input = [
-      cat.x, cat.y,
-      toy.x, toy.y,
-      1000 //体力は仮の値
-    ];
+    // 7次元: 相対位置2, chaser速度2, runner速度2, fatigue1
+    // ここでは速度・疲労度は仮値
+    const rel_x = toy.x - cat.x;
+    const rel_y = toy.y - cat.y;
+    const chaser_vel_x = 0.0; // 仮値
+    const chaser_vel_y = 0.0; // 仮値
+    const runner_vel_x = 0.0; // 仮値
+    const runner_vel_y = 0.0; // 仮値
+    const fatigue = 1.0; // 仮値
+    const input = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue];
     this.seq_obs.push(input);
     this.seq_obs.shift();
-    const input_sequence = new Float32Array(this.seq_obs.flat())
-    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 5]);
-    const results = await session.run({ "obs": tensor }); // [1, action_size, num_atoms]
+    const input_sequence = new Float32Array(this.seq_obs.flat());
+    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 7]);
+    const results = await session.run({ "obs": tensor });
 
     const option = results.option.data;
-    const action = results.action.data; // [action_size]
+    const action = results.action.data;
     return { option, action };
   }
 }
@@ -198,13 +203,17 @@ class GameScene extends Phaser.Scene {
     //スケールを調整
     const catScale = this.calculateScale(this.catImageSize.width, this.catImageSize.height) * 0.2;
     const toyScale = this.calculateScale(this.toyImageSize.width, this.toyImageSize.height);
-    const init = [
-      400, 400,
-      100, 100,
-      1000 // 体力の初期値（仮）
-    ];
-    this.cat = new Cat(this, init[0], init[1], init, catScale);
-    this.toy = new Toy(this, init[2], init[3], toyScale);
+    // 7次元: 相対位置2, chaser速度2, runner速度2, fatigue1
+    const rel_x = 100 - 400;
+    const rel_y = 100 - 400;
+    const chaser_vel_x = 0.0;
+    const chaser_vel_y = 0.0;
+    const runner_vel_x = 0.0;
+    const runner_vel_y = 0.0;
+    const fatigue = 1.0;
+    const init = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue];
+    this.cat = new Cat(this, 400, 400, init, catScale);
+    this.toy = new Toy(this, 100, 100, toyScale);
     this.toy.setSpeed(1); // 初期速度を 1 に設定
 
     this.add.existing(this.cat);

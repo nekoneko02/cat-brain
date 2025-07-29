@@ -6,12 +6,9 @@ class Chase(torch.nn.Module):
         super().__init__()
         self.input_adapter = adapter.InputAdapter(config=None, device='cpu')
     def forward(self, obs):
-        # obs: [cat_x, cat_y, toy_x, toy_y, energy]
-        cat_pos = obs[0:2]
-        toy_pos = obs[2:4]
-        distance_vec = toy_pos - cat_pos
-        distance = torch.norm(distance_vec)
-        # avoid division by zero
-        direction = distance_vec / (distance + 1e-8)
-        # dx, dyをテンソルで返す
+        # obs: [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue]
+        rel_pos = obs[0:2]
+        # 追いかける方向（相対位置ベクトルを正規化）
+        distance = torch.norm(rel_pos)
+        direction = rel_pos / (distance + 1e-8)
         return direction  # shape: [2]

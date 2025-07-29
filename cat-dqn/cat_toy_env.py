@@ -1,6 +1,7 @@
 import json
 import random
 import time
+from unittest import runner
 
 import numpy as np
 from gymnasium import spaces, Env
@@ -40,9 +41,9 @@ class CatToyEnv(Env):
         }
 
         # agent設定
-        self.chaser = chaser
-        self.runners = runners
-        self.candidates = [self.chaser] + self.runners
+        self.Chaser = chaser
+        self.Runners = runners
+
         # CatとToyのサイズを考慮して衝突判定を行う
         self.collision_threshold = COLLISION_THRESHOLD
 
@@ -55,9 +56,22 @@ class CatToyEnv(Env):
         self.action_space = spaces.Discrete(len(self.actions["cat"]))
 
     def _get_obs(self):
-        pos = self.positions[self.chaser] + self.positions[self.current_runner]
-        obs = pos + [self.cat_energy]
-        return np.array(obs, dtype=np.float32)
+        # 相対位置（Runner - Chaser, tanh正規化）
+        chaser_pos = np.array(self.positions[self.chaser], dtype=np.float32)
+        runner_pos = np.array(self.positions[self.current_runner], dtype=np.float32)
+        rel_pos = runner_pos - chaser_pos
+        rel_pos_norm = np.tanh(rel_pos / 100.0)
+
+        # Chaser速度ベクトル
+        chaser_vel = np.array(self.chaser.get_velocity(), dtype=np.float32)
+        # Runner速度ベクトル
+        runner_vel = np.array(self.current_runner.get_velocity(), dtype=np.float32)
+
+        # Chaser疲労度（0.0～1.0）
+        fatigue = self.chaser.get_fatigue()
+
+        obs = np.concatenate([rel_pos_norm, chaser_vel, runner_vel, [fatigue]]).astype(np.float32)
+        return obs
 
     def _init_runner(self):
         self.step_count_from_init_runner = 1
@@ -90,6 +104,9 @@ class CatToyEnv(Env):
         return self.squared_distance(self.chaser, self.current_runner) < 100**2
 
     def reset(self, seed=None, options=None):
+        self.chaser = self.Chaser()
+        self.runners = [runner() for runner in self.Runners]
+        self.candidates = [self.chaser] + self.runners
         self.positions = {agent: [0, 0] for agent in self.candidates}
         self.reward = 0
         self.terminated = False
@@ -101,7 +118,6 @@ class CatToyEnv(Env):
 
         self.step_count = 0
 
-        self.cat_energy = 1000
 
         obs = self._get_obs()
         return obs, self.info
@@ -129,6 +145,7 @@ class CatToyEnv(Env):
 
         # catの行動
         self._move_agent(self.chaser, action)
+        self.chaser.set_velocity(action["dx"], action["dy"])
 
         is_collision, distance = self._is_collision(self.chaser, self.current_runner, return_distance=True)
         # 衝突判定
@@ -136,14 +153,14 @@ class CatToyEnv(Env):
             print(f"cat catch toy! {self.info}")
             toy_energy = self.current_runner.get_energy()
             reward += toy_energy
-            self.cat_energy += toy_energy
+            self.chaser.energy += toy_energy
             self._init_runner()
 
         # エネルギー消費
         energy_consumption = self.chaser.energy_consumption(action)
         basal_metabolic_rate = self.chaser.basal_metabolic_rate()
         reward -= energy_consumption + basal_metabolic_rate
-        self.cat_energy -= energy_consumption + basal_metabolic_rate
+        self.chaser.energy -= energy_consumption + basal_metabolic_rate
 
         # 近寄るボーナス
         if self.current_runner.get_energy() > 0 and distance < self.prev_distance:
@@ -151,7 +168,7 @@ class CatToyEnv(Env):
         self.prev_distance = distance
 
         # エネルギー切れ
-        if self.cat_energy <= 0:
+        if self.chaser.energy <= 0:
             print("cat is tired")
             truncated = True
             reward += -10000.0
@@ -163,8 +180,8 @@ class CatToyEnv(Env):
     def _move_agent(self, agent, action):
         dx, dy = action["dx"], action["dy"]
         x, y = self.positions[agent]
-        new_x = min(max(x + dx, 0), self.width - 1)
-        new_y = min(max(y + dy, 0), self.height - 1)
+        new_x = x + dx
+        new_y = y + dy
         self.positions[agent][0] = new_x
         self.positions[agent][1] = new_y
 
@@ -188,23 +205,47 @@ class CatToyEnv(Env):
 
         cat_x, cat_y = self.positions[self.chaser]
         toy_x, toy_y = self.positions[self.current_runner]
-        if cat_x == toy_x and cat_y == toy_y:
-            grid[int(grid_size * (cat_y / self.height))][
-                int(grid_size * (cat_x / self.width))
-            ] = "C&T"
-        else:
-            grid[int(grid_size * (cat_y / self.height))][
-                int(grid_size * (cat_x / self.width))
-            ] = "C"
-            grid[int(grid_size * (toy_y / self.height))][
-                int(grid_size * (toy_x / self.width))
-            ] = "T"
+
+        # render専用の中心座標を管理
+        if not hasattr(self, "_render_center"):
+            self._render_center = [cat_x, cat_y]
+
+        center_x, center_y = self._render_center
+        min_x = int(center_x - grid_size // 2)
+        min_y = int(center_y - grid_size // 2)
+
+        # Catが枠外に出たら中心座標を更新
+        cat_gx = int(cat_x - min_x)
+        cat_gy = int(cat_y - min_y)
+        if not (0 <= cat_gx < grid_size and 0 <= cat_gy < grid_size):
+            self._render_center = [cat_x, cat_y]
+            center_x, center_y = self._render_center
+            min_x = int(center_x - grid_size // 2)
+            min_y = int(center_y - grid_size // 2)
+            cat_gx = int(cat_x - min_x)
+            cat_gy = int(cat_y - min_y)
+
+        def to_grid_coords(x, y):
+            gx = int(x - min_x)
+            gy = int(y - min_y)
+            if 0 <= gx < grid_size and 0 <= gy < grid_size:
+                return gx, gy
+            return None, None
+
+        toy_gx, toy_gy = to_grid_coords(toy_x, toy_y)
+        if 0 <= cat_gx < grid_size and 0 <= cat_gy < grid_size:
+            if cat_gx == toy_gx and cat_gy == toy_gy:
+                grid[cat_gy][cat_gx] = "C&T"
+            else:
+                grid[cat_gy][cat_gx] = "C"
+        if toy_gx is not None and toy_gy is not None and (cat_gx != toy_gx or cat_gy != toy_gy):
+            grid[toy_gy][toy_gx] = "T"
         clear_output(wait=True)
         for row in reversed(grid):
             print(" ".join(row))
         print("-" * (2 * grid_size))
         print(
-            f"count: {self.step_count}, positions: cat: ({cat_x}, {cat_y}), toy: ({toy_x}, {toy_y})"
+            f"count: {self.step_count}, positions: cat: ({cat_x}, {cat_y}), toy: ({toy_x}, {toy_y}), center: ({center_x}, {center_y})"
         )
         time.sleep(0.01)
 

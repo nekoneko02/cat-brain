@@ -1,6 +1,16 @@
 class Cat:
     def __init__(self):
-        pass
+        self.vel = [0.0, 0.0]
+        self.energy = 1000
+
+    def set_velocity(self, dx, dy):
+        self.vel = [dx, dy]
+
+    def get_velocity(self):
+        return self.vel
+
+    def get_fatigue(self):
+        return max(0.0, min(1.0, self.energy / 1000.0))
     
     def energy_consumption(self, action):
         # PreCatのエネルギー消費を計算

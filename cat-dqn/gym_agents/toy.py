@@ -2,19 +2,20 @@ import numpy as np
 
 class Toy:
     def __init__(self):
-        pass
+        self.vel = np.array([0.0, 0.0], dtype=np.float32)
+        self.energy = 100.0
 
     def get_action(self, observation):
-        # obs: [cat_x, cat_y, toy_x, toy_y, energy]
-        cat_pos = np.array(observation[0:2])
-        toy_pos = np.array(observation[2:4])
+        # obs: [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue]
+        rel_pos = observation[0:2]
 
-        # catから遠ざかる方向
-        distance_vec = -(cat_pos - toy_pos)
-        distance = np.linalg.norm(distance_vec)
-        direction = (distance_vec / distance) * 0.5  # 0.7 is a scaling factor to control the speed
-
-        return {"dx": direction[0], "dy": direction[1]}
+        # 追いかける方向（相対位置ベクトルを正規化）
+        distance = np.linalg.norm(rel_pos)
+        direction = 0.5 * rel_pos / (distance + 1e-8)
+        self.vel = direction
+        return  {"dx": direction[0], "dy": direction[1]}  # shape: [2]
+    def get_velocity(self):
+        return self.vel
     
     def get_energy(self):
         # トイのエネルギーを返す
