@@ -96,7 +96,7 @@ class CatAgent:
 
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
-            return
+            return None
 
         indices, data = self._get_sarsa(batch_size)
 
@@ -112,6 +112,8 @@ class CatAgent:
 
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
+        return loss.item()
 
     def save_model(self, filepath):
         checkpoint = {"model_state_dict": self.model.state_dict()}

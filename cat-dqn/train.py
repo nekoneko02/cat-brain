@@ -14,9 +14,11 @@ def train_dqn(agent, env, config):
     while total_step < training_steps:
         obs, _ = env.reset()
         done = False
+        loss = None
 
         while not done:
             steps += 1
+            total_step += 1
 
             option, action = agent.act(obs)
             next_obs, reward, terminated, truncated, _ = env.step(action)
@@ -34,18 +36,18 @@ def train_dqn(agent, env, config):
             )
             # ここでreplayを行う
             if env.step_count % replay_interval == 0:
-                agent.replay(batch_size)
+                loss = agent.replay(batch_size)
 
             if done or env.step_count % 1000 == 0:
                 formated_obs = ", ".join([f"{x:.2f}" for x in obs])
                 formated_reward = f"{(reward):+7.2f}"
-                print(f"steps {env.step_count:>5}, reward {formated_reward}, state is {formated_obs}")
+                if loss is not None:
+                    print(f"steps {env.step_count:>5}, reward {formated_reward}, state is {formated_obs}, loss {loss:.4f}, current_runner: {env.current_runner.__class__.__name__}")
+                else:
+                    print(f"steps {env.step_count:>5}, reward {formated_reward}, state is {formated_obs}")
             
             obs = next_obs
-
-            # ターゲットネットワーク更新
-            if env.step_count % (update_target_steps * 4000) == 0:
-                agent.update_target_model()
+            
         num_episodes += 1
         # ログ出力
         print(f"+++++++ Episode {num_episodes}: " + ", ".join([f"{total_reward / update_target_steps:.2f}"]), steps / update_target_steps)
