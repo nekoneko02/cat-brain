@@ -1,19 +1,19 @@
-import json
 import random
 import time
-from unittest import runner
 
 import numpy as np
 from gymnasium import spaces, Env
 from IPython.display import clear_output
 
 COLLISION_THRESHOLD = 3
+RUNNNER_DISTANCE_THRESHOLD = 1000
 
 class CatToyEnv(Env):
     metadata = {"render_modes": ["human"], "name": "cat_toy_env_v0"}
 
     def __init__(
         self,
+        config,
         render_mode=None,
         max_steps=1000,
         chaser=None,
@@ -23,10 +23,7 @@ class CatToyEnv(Env):
         super().__init__()
         self.render_mode = render_mode
         self.max_steps = max_steps
-        self.reset_interval = reset_interval
-
-        with open("../cat-game/public/common.json") as f:
-            config = json.load(f)
+        self.reset_interval = reset_interval       
 
         obs_config = config["observation_space"]
 
@@ -48,19 +45,19 @@ class CatToyEnv(Env):
         self.collision_threshold = COLLISION_THRESHOLD
 
         self.observation_space = spaces.Box(
-            low=0,
-            high=max(self.width - 1, self.height - 1),
+            low=-1000,
+            high=1000,
             shape=obs_config["cat"]["shape"],
             dtype=np.float32,
         )
-        self.action_space = spaces.Discrete(len(self.actions["cat"]))
+        self.action_space = self.Chaser().get_action_space()
 
     def _get_obs(self):
         # 相対位置（Runner - Chaser, tanh正規化）
         chaser_pos = np.array(self.positions[self.chaser], dtype=np.float32)
         runner_pos = np.array(self.positions[self.current_runner], dtype=np.float32)
         rel_pos = runner_pos - chaser_pos
-        rel_pos_norm = np.tanh(rel_pos / 100.0)
+        rel_pos_norm = np.tanh(rel_pos / 2000.0)
 
         # Chaser速度ベクトル
         chaser_vel = np.array(self.chaser.get_velocity(), dtype=np.float32)
@@ -80,28 +77,27 @@ class CatToyEnv(Env):
         selected = random.sample(self.runners, k=1)
         self.current_runner = selected[0]
         self.info["current_runner"] = str(self.current_runner)
+        print(f"init_runner: current_runner is {self.current_runner}")
+        # chaserの位置取得
+        chaser_pos = np.array(self.positions[self.chaser], dtype=np.float32)
 
-        while True:
-            self.positions[self.current_runner] = [
-                random.randint(0, self.width - 1),
-                random.randint(0, self.height - 1),
-            ]
-            if not self._is_too_close_agents():
-                break
+        # 距離100~300の範囲でランダムに決定
+        distance = random.uniform(100, 300)
+        # ランダムな方向ベクトル（大きさ1）生成
+        angle = random.uniform(0, 2 * np.pi)
+        direction = np.array([np.cos(angle), np.sin(angle)], dtype=np.float32)
+        
+        offset = direction * distance
+        runner_pos = chaser_pos + offset
+        self.positions[self.current_runner] = [float(runner_pos[0]), float(runner_pos[1])]
+
         self.prev_distance = self.squared_distance(self.chaser, self.current_runner)
 
     def _init_chaser(self):
-        while True:
-            self.positions[self.chaser] = [
-                random.randint(0, self.width - 1),
-                random.randint(0, self.height - 1),
-            ]
-            if not self._is_too_close_agents():
-                break
-        self.prev_distance = self.squared_distance(self.chaser, self.current_runner)
-
-    def _is_too_close_agents(self):
-        return self.squared_distance(self.chaser, self.current_runner) < 100**2
+        self.positions[self.chaser] = [
+            random.randint(0, self.width - 1),
+            random.randint(0, self.height - 1),
+        ]
 
     def reset(self, seed=None, options=None):
         self.chaser = self.Chaser()
@@ -113,8 +109,8 @@ class CatToyEnv(Env):
         self.truncated = False
         self.info = {}
 
-        self._init_runner()
         self._init_chaser()
+        self._init_runner()
 
         self.step_count = 0
 
@@ -123,56 +119,62 @@ class CatToyEnv(Env):
         return obs, self.info
 
     def step(self, action):
+        # action: int (cat_actionsのindex)
         self.step_count += 1
-        reward, terminated, truncated, info = self._step_cat(action)            
-        self._step_runners()
+        self.step_count_from_init_runner += 1
 
-        # reset_interval毎にrunner再選択
-        if self.step_count_from_init_runner >= self.reset_interval:
-            self._init_runner()
+        # cat_actionsのindexからaction dictを取得
+        self._step_runners()
+        reward, terminated, truncated, is_collision = self._step_cat(action)
+
         obs = self._get_obs()
+
+        squared_distance = self.squared_distance(self.chaser, self.current_runner)
+        if (
+            self.step_count_from_init_runner >= self.reset_interval
+            or squared_distance > RUNNNER_DISTANCE_THRESHOLD**2
+            or is_collision
+        ):
+            self._init_runner()
 
         if self.render_mode == "human":
             self.render()
 
-        return obs, reward, terminated, truncated, info
+        return obs, reward, terminated, truncated, self.info
 
     def _step_cat(self, action):
         reward = 1.0
         terminated = False
         truncated = False
-        info = {}
 
         # catの行動
+        action = self.chaser.get_action(action, self._get_obs())
         self._move_agent(self.chaser, action)
-        self.chaser.set_velocity(action["dx"], action["dy"])
 
         is_collision, distance = self._is_collision(self.chaser, self.current_runner, return_distance=True)
+
+        # 最適行動によるボーナス
+        if self.current_runner.get_energy() > 0 and distance < self.prev_distance:
+            reward += 1
+        if self.current_runner.get_energy() <= 0 and distance >= self.prev_distance:
+            reward += 1
+        
+        self.prev_distance = distance
+        
         # 衝突判定
         if is_collision:
             print(f"cat catch toy! {self.info}")
             toy_energy = self.current_runner.get_energy()
-            reward += toy_energy
-            self.chaser.energy += toy_energy
-            self._init_runner()
-
-        # エネルギー消費
-        energy_consumption = self.chaser.energy_consumption(action)
-        basal_metabolic_rate = self.chaser.basal_metabolic_rate()
-        reward -= energy_consumption + basal_metabolic_rate
-        self.chaser.energy -= energy_consumption + basal_metabolic_rate
-
-        # 近寄るボーナス
-        if self.current_runner.get_energy() > 0 and distance < self.prev_distance:
-            reward += 0.15
-        self.prev_distance = distance
-
+            self.chaser.eat(toy_energy)
+            reward += 10 * toy_energy / abs(toy_energy)  # トイのエネルギーを報酬に変換
+            
+        
         # エネルギー切れ
         if self.chaser.energy <= 0:
             print("cat is tired")
             truncated = True
-            reward += -10000.0
-        return reward, terminated, truncated, info
+            reward = -10
+        return reward, terminated, truncated, is_collision
     def _step_runners(self):
         action = self.current_runner.get_action(self._get_obs())
         self._move_agent(self.current_runner, action)

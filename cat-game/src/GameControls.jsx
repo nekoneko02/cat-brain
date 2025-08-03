@@ -1,6 +1,36 @@
 import React, { useRef, useState } from 'react';
 
 export default function GameControls({ onDirection, onSpeed, onMode, isHardMode, speed }) {
+  // Shift長押しで速度1、通常時は0.5
+  // 初回レンダリング時のみ速度0.5に設定
+  React.useEffect(() => {
+    onSpeed(0.5);
+    // eslint-disable-next-line
+  }, []);
+
+  React.useEffect(() => {
+    let shiftDown = false;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Shift') {
+        if (!shiftDown) {
+          shiftDown = true;
+          onSpeed(1);
+        }
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.key === 'Shift') {
+        shiftDown = false;
+        onSpeed(0.5);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [onSpeed]);
   const stickRef = useRef(null);
   const dragging = useRef(false);
   const [stickPos, setStickPos] = useState({ x: 60, y: 60 });
@@ -32,7 +62,7 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
     let dist = Math.sqrt(dx * dx + dy * dy);
     // 4方向判定
     let dir = null;
-    if (dist > 20) {
+    if (dist > 5) {
       if (Math.abs(dx) > Math.abs(dy)) {
         dir = dx > 0 ? 'right' : 'left';
         x = center.x + Math.sign(dx) * Math.min(Math.abs(dx), radius - knobRadius);
@@ -44,9 +74,14 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
       }
       setStickPos({ x, y });
       onDirection(dir);
+      // スティックの倒し具合で速度を切り替え（0～2で線形割り当て）
+      const maxDist = radius - knobRadius;
+      const stickSpeed = Math.min(dist / maxDist, 1) * 2;
+      onSpeed(Number(stickSpeed.toFixed(2)));
     } else {
       setStickPos(center);
       onDirection(null);
+      onSpeed(0);
     }
   };
 
@@ -92,45 +127,22 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
           <circle cx={stickPos.x} cy={stickPos.y} r={knobRadius} fill="#bbb" />
         </svg>
       </div>
-      {/* 速度・モード切替ボタン */}
+      {/* 速度・モード切替スライダー */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ marginBottom: 16 }}>
-          <button
-            onClick={() => onSpeed(1)}
-            style={{ ...wideBtnStyle, background: speed === 1 ? '#0000ff' : '#ccc', color: '#fff' }}
-          >
-            速度1
-          </button>
-          <button
-            onClick={() => onSpeed(2.5)}
-            style={{
-              ...wideBtnStyle,
-              background: speed === 2.5 ? '#ff0000' : '#ccc',
-              color: '#fff',
-              marginLeft: 8,
-            }}
-          >
-            速度2.5
-          </button>
-        </div>
-        <div>
-          <button
-            onClick={() => onMode(true)}
-            style={{ ...wideBtnStyle, background: isHardMode ? '#ff8800' : '#888', fontSize: 16 }}
-          >
-            ハードモード
-          </button>
-          <button
-            onClick={() => onMode(false)}
-            style={{
-              ...wideBtnStyle,
-              background: !isHardMode ? '#00bbff' : '#888',
-              marginLeft: 8,
-              fontSize: 16,
-            }}
-          >
-            イージーモード
-          </button>
+        <div style={{ marginBottom: 16, width: 180 }}>
+          <label htmlFor="speed-slider" style={{ fontSize: 16, marginBottom: 8, display: 'block', textAlign: 'center' }}>
+            速度: {speed.toFixed(2)}
+          </label>
+          <input
+            id="speed-slider"
+            type="range"
+            min={0}
+            max={2}
+            step={0.01}
+            value={speed}
+            onChange={e => onSpeed(Number(e.target.value))}
+            style={{ width: '100%' }}
+          />
         </div>
       </div>
     </div>

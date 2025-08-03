@@ -72,14 +72,25 @@ class Cat extends Phaser.GameObjects.Sprite {
     for (let seq_i = 0; seq_i < model_config.sequence_length; seq_i++) {
       this.seq_obs[seq_i] = init_input;
     }
+    //長さ256の配列を作る
+    this.actor_h = new Float32Array(256);
+    this.actor_c = new Float32Array(256);
+    this.critic_h = new Float32Array(256);
+    this.critic_c = new Float32Array(256);
+    // 速度変数を追加
+    this.vel_x = 0.0;
+    this.vel_y = 0.0;
   }
 
   async move(toy) {
     const { option, action } = await this.predictAction(this, toy);
 
     if (action) {
-      this.x += action[0];
-      this.y += action[1];
+      // 速度を更新
+      this.vel_x = action[0];
+      this.vel_y = action[1];
+      this.x += this.vel_x;
+      this.y += this.vel_y;
     }
 
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
@@ -90,23 +101,26 @@ class Cat extends Phaser.GameObjects.Sprite {
     if (!session) throw new Error('Model not loaded yet!');
 
     // 7次元: 相対位置2, chaser速度2, runner速度2, fatigue1
-    // ここでは速度・疲労度は仮値
-    const rel_x = toy.x - cat.x;
-    const rel_y = toy.y - cat.y;
-    const chaser_vel_x = 0.0; // 仮値
-    const chaser_vel_y = 0.0; // 仮値
-    const runner_vel_x = 0.0; // 仮値
-    const runner_vel_y = 0.0; // 仮値
+    // 速度・疲労度はインスタンス変数から取得
+    // rel_x, rel_yは2000で割ってtanhで正規化
+    const rel_x = Math.tanh((toy.x - cat.x) / 2000);
+    const rel_y = Math.tanh((toy.y - cat.y) / 2000);
+    const chaser_vel_x = cat.vel_x;
+    const chaser_vel_y = cat.vel_y;
+    const runner_vel_x = toy.vel_x;
+    const runner_vel_y = toy.vel_y;
     const fatigue = 1.0; // 仮値
-    const input = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue];
-    this.seq_obs.push(input);
-    this.seq_obs.shift();
-    const input_sequence = new Float32Array(this.seq_obs.flat());
-    const tensor = new ort.Tensor('float32', input_sequence, [1, this.seq_obs.length, 7]);
-    const results = await session.run({ "obs": tensor });
+    const obs = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue];
+    console.log(obs)
+    const tensor_obs = new ort.Tensor('float32', obs, [1, 7]);
+
+    const results = await session.run({
+      "obs": tensor_obs
+    });
 
     const option = results.option.data;
     const action = results.action.data;
+    console.log('Predicted option:', option, 'action:', action);
     return { option, action };
   }
 }
@@ -118,6 +132,9 @@ class Toy extends Phaser.GameObjects.Sprite {
     this.setScale(scale);
     this.cursors = scene.input.keyboard.createCursorKeys();  // 矢印キー入力
     this.currentSpeed = 1;  // 初期値は 1
+    // 速度変数を追加
+    this.vel_x = 0.0;
+    this.vel_y = 0.0;
   }
 
   setSpeed(speed) {
@@ -147,13 +164,16 @@ class Toy extends Phaser.GameObjects.Sprite {
 
   move(direction) {
     const matchingActions = actions_toy.filter(action =>
-      action.name === direction && action.speed === this.currentSpeed
+      action.name === direction
     );
 
     if (matchingActions.length > 0) {
       const action = matchingActions[0];
-      this.x += action.dx * action.speed;
-      this.y += action.dy * action.speed;
+      // 速度を更新
+      this.vel_x = action.dx * this.currentSpeed;
+      this.vel_y = action.dy * this.currentSpeed;
+      this.x += this.vel_x;
+      this.y += this.vel_y;
     }
 
     // 境界チェック
@@ -214,7 +234,7 @@ class GameScene extends Phaser.Scene {
     const init = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue];
     this.cat = new Cat(this, 400, 400, init, catScale);
     this.toy = new Toy(this, 100, 100, toyScale);
-    this.toy.setSpeed(1); // 初期速度を 1 に設定
+    this.toy.setSpeed(0.5); // 初期速度を 1 に設定
 
     this.add.existing(this.cat);
     this.add.existing(this.toy);

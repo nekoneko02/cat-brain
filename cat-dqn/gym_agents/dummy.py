@@ -3,7 +3,7 @@ import random
 class Dummy:
     def __init__(self):
         self.vel = [0.0, 0.0]
-        self.energy = -100.0
+        self.energy = -1000.0
 
     def get_action(self, observation):
         # ここでは単純にランダムなアクションを返す
@@ -14,4 +14,4 @@ class Dummy:
         return self.vel
     
     def get_energy(self):
-        return -1000  # 例: dummyを捕まえると負の報酬
+        return self.energy  # 例: dummyを捕まえると負の報酬

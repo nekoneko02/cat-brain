@@ -219,7 +219,7 @@
       {
         "id": 0,
         "name": "up",
-        "speed": 1,
+        "speed": 0.5,
         "dx": 0,
         "dy": -1,
         "can_eatting": true
@@ -227,7 +227,7 @@
       {
         "id": 1,
         "name": "down",
-        "speed": 1,
+        "speed": 0.5,
         "dx": 0,
         "dy": 1,
         "can_eatting": true
@@ -235,7 +235,7 @@
       {
         "id": 2,
         "name": "left",
-        "speed": 1,
+        "speed": 0.5,
         "dx": -1,
         "dy": 0,
         "can_eatting": true
@@ -243,7 +243,7 @@
       {
         "id": 3,
         "name": "right",
-        "speed": 1,
+        "speed": 0.5,
         "dx": 1,
         "dy": 0,
         "can_eatting": true
