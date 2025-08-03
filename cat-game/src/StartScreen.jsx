@@ -19,8 +19,7 @@ export default function StartScreen({ onStart }) {
         <h3>操作説明</h3>
         <ul style={{ display: 'inline-block', textAlign: 'left' }}>
           <li>矢印キーまたは画面のボタンでおもちゃを動かせます</li>
-          <li>速度切替ボタンでおもちゃの速さを変更できます</li>
-          <li>モード切替で難易度を変更できます</li>
+          <li>速度はスライダー、Shiftキー（長押しで高速）、またはアナログスティックの倒し具合で調整できます</li>
         </ul>
       </section>
       <button style={{ fontSize: 24, padding: '12px 40px', borderRadius: 8 }} onClick={onStart}>
