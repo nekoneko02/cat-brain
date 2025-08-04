@@ -1,8 +1,10 @@
 import numpy as np
 
 class Toy:
-    def __init__(self):
+    def __init__(self, vel_seq_len=1):
+        self.vel_seq_len = vel_seq_len
         self.vel = np.array([0.0, 0.0], dtype=np.float32)
+        self.vel_seq = [np.array([0.0, 0.0], dtype=np.float32) for _ in range(vel_seq_len)]
         self.energy = 1000.0
 
     def get_action(self, observation):
@@ -13,9 +15,13 @@ class Toy:
         distance = np.linalg.norm(rel_pos)
         direction = 0.5 * rel_pos / (distance + 1e-8)
         self.vel = direction
+        # 速度履歴更新
+        self.vel_seq.pop(0)
+        self.vel_seq.append(direction)
         return  {"dx": direction[0], "dy": direction[1]}  # shape: [2]
     def get_velocity(self):
-        return self.vel
+        # 最新から過去順でflatten
+        return np.array(self.vel_seq[::-1]).flatten()
     
     def get_energy(self):
         # トイのエネルギーを返す
@@ -23,8 +29,10 @@ class Toy:
 
 
 class ToySlow:
-    def __init__(self):
+    def __init__(self, vel_seq_len=1):
+        self.vel_seq_len = vel_seq_len
         self.vel = np.array([0.0, 0.0], dtype=np.float32)
+        self.vel_seq = [np.array([0.0, 0.0], dtype=np.float32) for _ in range(vel_seq_len)]
         self.energy = 1000.0
 
     def get_action(self, observation):
@@ -35,9 +43,13 @@ class ToySlow:
         distance = np.linalg.norm(rel_pos)
         direction = 0.1 * rel_pos / (distance + 1e-8)
         self.vel = direction
+        # 速度履歴更新
+        self.vel_seq.pop(0)
+        self.vel_seq.append(direction)
         return  {"dx": direction[0], "dy": direction[1]}  # shape: [2]
     def get_velocity(self):
-        return self.vel
+        # 最新から過去順でflatten
+        return np.array(self.vel_seq[::-1]).flatten()
     
     def get_energy(self):
         # トイのエネルギーを返す

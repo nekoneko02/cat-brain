@@ -1,4 +1,6 @@
 let debugMode = false; // デバッグモードフラグ
+// velocity sequence length (Pythonと合わせる)
+const vel_seq_len = 3;
 // let session;
 
 async function loadModel() {
@@ -77,7 +79,7 @@ class Cat extends Phaser.GameObjects.Sprite {
     this.actor_c = new Float32Array(256);
     this.critic_h = new Float32Array(256);
     this.critic_c = new Float32Array(256);
-    // 速度変数を追加
+    // velocity sequence (Catは1つだけ保持)
     this.vel_x = 0.0;
     this.vel_y = 0.0;
   }
@@ -101,18 +103,30 @@ class Cat extends Phaser.GameObjects.Sprite {
     if (!session) throw new Error('Model not loaded yet!');
 
     // 7次元: 相対位置2, chaser速度2, runner速度2, fatigue1
-    // 速度・疲労度はインスタンス変数から取得
-    // rel_x, rel_yは2000で割ってtanhで正規化
+    // runner velocity sequence (flatten)
     const rel_x = Math.tanh((toy.x - cat.x) / 2000);
     const rel_y = Math.tanh((toy.y - cat.y) / 2000);
     const chaser_vel_x = cat.vel_x;
     const chaser_vel_y = cat.vel_y;
-    const runner_vel_x = toy.vel_x;
-    const runner_vel_y = toy.vel_y;
+    // flatten toy.vel_seq: [vx1, vy1, vx2, vy2, ...]
+    let runner_vel_seq_flat = [];
+    if (toy.vel_seq && toy.vel_seq.length === vel_seq_len) {
+      for (let i = 0; i < vel_seq_len; i++) {
+        runner_vel_seq_flat.push(toy.vel_seq[i][0]);
+        runner_vel_seq_flat.push(toy.vel_seq[i][1]);
+      }
+    } else {
+      // fallback: 現在の速度を繰り返し
+      for (let i = 0; i < vel_seq_len; i++) {
+        runner_vel_seq_flat.push(toy.vel_x);
+        runner_vel_seq_flat.push(toy.vel_y);
+      }
+    }
     const fatigue = 1.0; // 仮値
-    const obs = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, runner_vel_x, runner_vel_y, fatigue];
-    console.log(obs)
-    const tensor_obs = new ort.Tensor('float32', obs, [1, 7]);
+    // obs: [rel_x, rel_y, chaser_vel_x, chaser_vel_y, ...runner_vel_seq_flat..., fatigue]
+    const obs = [rel_x, rel_y, chaser_vel_x, chaser_vel_y, ...runner_vel_seq_flat, fatigue];
+    const obs_dim = 4 + vel_seq_len * 2 + 1;
+    const tensor_obs = new ort.Tensor('float32', obs, [1, obs_dim]);
 
     const results = await session.run({
       "obs": tensor_obs
@@ -120,7 +134,6 @@ class Cat extends Phaser.GameObjects.Sprite {
 
     const option = results.option.data;
     const action = results.action.data;
-    console.log('Predicted option:', option, 'action:', action);
     return { option, action };
   }
 }
@@ -132,7 +145,11 @@ class Toy extends Phaser.GameObjects.Sprite {
     this.setScale(scale);
     this.cursors = scene.input.keyboard.createCursorKeys();  // 矢印キー入力
     this.currentSpeed = 1;  // 初期値は 1
-    // 速度変数を追加
+    // velocity sequence
+    this.vel_seq = [];
+    for (let i = 0; i < vel_seq_len; i++) {
+      this.vel_seq.push([0.0, 0.0]);
+    }
     this.vel_x = 0.0;
     this.vel_y = 0.0;
   }
@@ -174,6 +191,11 @@ class Toy extends Phaser.GameObjects.Sprite {
       this.vel_y = action.dy * this.currentSpeed;
       this.x += this.vel_x;
       this.y += this.vel_y;
+      // velocity sequence更新
+      this.vel_seq.push([this.vel_x, this.vel_y]);
+      if (this.vel_seq.length > vel_seq_len) {
+        this.vel_seq.shift();
+      }
     }
 
     // 境界チェック

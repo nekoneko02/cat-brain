@@ -43,14 +43,23 @@ class CatToyEnv(Env):
 
         # CatとToyのサイズを考慮して衝突判定を行う
         self.collision_threshold = COLLISION_THRESHOLD
-
+        # 環境サイズ等はrunner/chaserから取得する前提
+        tmp_chaser = self.Chaser()
+        tmp_runner = self.Runners[0]()
+        # 位置情報は仮で0,0
+        rel_pos_shape = (2,)
+        chaser_vel_shape = np.array(tmp_chaser.get_velocity()).shape
+        runner_vel_shape = np.array(tmp_runner.get_velocity()).shape
+        fatigue_shape = (1,)
+        obs_shape = (rel_pos_shape[0] + chaser_vel_shape[0] + runner_vel_shape[0] + fatigue_shape[0],)
         self.observation_space = spaces.Box(
             low=-1000,
             high=1000,
-            shape=obs_config["cat"]["shape"],
+            shape=obs_shape,
             dtype=np.float32,
         )
-        self.action_space = self.Chaser().get_action_space()
+        self.action_space = tmp_chaser.get_action_space()
+        # width, height, agent_size等はrunner/chaserから取得する前提。必要なら追加。
 
     def _get_obs(self):
         # 相対位置（Runner - Chaser, tanh正規化）
@@ -61,21 +70,20 @@ class CatToyEnv(Env):
 
         # Chaser速度ベクトル
         chaser_vel = np.array(self.chaser.get_velocity(), dtype=np.float32)
-        # Runner速度ベクトル
-        runner_vel = np.array(self.current_runner.get_velocity(), dtype=np.float32)
+        # Runner速度履歴（flatten済み）
+        runner_vel_seq = np.array(self.current_runner.get_velocity(), dtype=np.float32)
 
         # Chaser疲労度（0.0～1.0）
         fatigue = self.chaser.get_fatigue()
 
-        obs = np.concatenate([rel_pos_norm, chaser_vel, runner_vel, [fatigue]]).astype(np.float32)
+        obs = np.concatenate([rel_pos_norm, chaser_vel, runner_vel_seq, [fatigue]]).astype(np.float32)
         return obs
 
     def _init_runner(self):
         self.step_count_from_init_runner = 1
-        
-        # runnersからランダムに1つ選択
-        selected = random.sample(self.runners, k=1)
-        self.current_runner = selected[0]
+        # Runnersからランダムに1つインスタンス化
+        selected = random.sample(self.Runners, k=1)
+        self.current_runner = selected[0]()
         self.info["current_runner"] = str(self.current_runner)
         print(f"init_runner: current_runner is {self.current_runner}")
         # chaserの位置取得
@@ -86,7 +94,6 @@ class CatToyEnv(Env):
         # ランダムな方向ベクトル（大きさ1）生成
         angle = random.uniform(0, 2 * np.pi)
         direction = np.array([np.cos(angle), np.sin(angle)], dtype=np.float32)
-        
         offset = direction * distance
         runner_pos = chaser_pos + offset
         self.positions[self.current_runner] = [float(runner_pos[0]), float(runner_pos[1])]
@@ -94,16 +101,16 @@ class CatToyEnv(Env):
         self.prev_distance = self.squared_distance(self.chaser, self.current_runner)
 
     def _init_chaser(self):
+        self.chaser = self.Chaser()
         self.positions[self.chaser] = [
             random.randint(0, self.width - 1),
             random.randint(0, self.height - 1),
         ]
 
     def reset(self, seed=None, options=None):
-        self.chaser = self.Chaser()
-        self.runners = [runner() for runner in self.Runners]
-        self.candidates = [self.chaser] + self.runners
-        self.positions = {agent: [0, 0] for agent in self.candidates}
+        self.chaser = None
+        self.current_runner = None
+        self.positions = {}
         self.reward = 0
         self.terminated = False
         self.truncated = False
@@ -113,7 +120,6 @@ class CatToyEnv(Env):
         self._init_runner()
 
         self.step_count = 0
-
 
         obs = self._get_obs()
         return obs, self.info
