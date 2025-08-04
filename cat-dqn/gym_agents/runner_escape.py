@@ -1,9 +1,9 @@
 import numpy as np
 from .runner_base import RunnerBase
 
-class Toy(RunnerBase):
-    def __init__(self, vel_seq_len, energy, speed):
-        super().__init__(vel_seq_len=vel_seq_len, energy=energy)
+class RunnerEscape(RunnerBase):
+    def __init__(self, speed, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.speed = speed
 
     def get_action(self, observation):

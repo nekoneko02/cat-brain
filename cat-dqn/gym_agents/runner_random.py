@@ -2,9 +2,9 @@ import numpy as np
 import random
 from .runner_base import RunnerBase
 
-class Dummy(RunnerBase):
-    def __init__(self, vel_seq_len=1, energy=-1000.0, speed=0.5):
-        super().__init__(vel_seq_len=vel_seq_len, energy=energy)
+class RunnerRandom(RunnerBase):
+    def __init__(self, speed, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.speed = speed
 
     def get_action(self, observation):
