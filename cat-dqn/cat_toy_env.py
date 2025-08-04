@@ -45,7 +45,7 @@ class CatToyEnv(Env):
         self.collision_threshold = COLLISION_THRESHOLD
         # 環境サイズ等はrunner/chaserから取得する前提
         tmp_chaser = self.Chaser()
-        tmp_runner = self.Runners[0]()
+        tmp_runner = self.Runners[0][0]()
         # 位置情報は仮で0,0
         rel_pos_shape = (2,)
         chaser_vel_shape = np.array(tmp_chaser.get_velocity()).shape
@@ -81,18 +81,19 @@ class CatToyEnv(Env):
 
     def _init_runner(self):
         self.step_count_from_init_runner = 1
-        # Runnersからランダムに1つインスタンス化
-        selected = random.sample(self.Runners, k=1)
-        self.current_runner = selected[0]()
+        # (Factory, rate)リストからrateに従いサンプリング
+        factories, rates = zip(*self.Runners)
+        idx = np.random.choice(len(factories), p=rates)
+        self.current_runner = factories[idx]()
         self.info["current_runner"] = str(self.current_runner)
         print(f"init_runner: current_runner is {self.current_runner}")
         # chaserの位置取得
         chaser_pos = np.array(self.positions[self.chaser], dtype=np.float32)
 
         # 距離100~300の範囲でランダムに決定
-        distance = random.uniform(100, 300)
+        distance = np.random.uniform(100, 300)
         # ランダムな方向ベクトル（大きさ1）生成
-        angle = random.uniform(0, 2 * np.pi)
+        angle = np.random.uniform(0, 2 * np.pi)
         direction = np.array([np.cos(angle), np.sin(angle)], dtype=np.float32)
         offset = direction * distance
         runner_pos = chaser_pos + offset
