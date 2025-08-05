@@ -16,39 +16,11 @@ async function loadModel() {
 }
 
 
-let actions = [];
-let actions_toy = [];
-let toy_speed = [];
-let observation_space = {};
-let environment = {};
-let model_config = {};
-let hidden_state = null;
-
-async function loadConfig() {
-  let base = window.base_path || '/';
-  if (!base.endsWith('/')) base += '/';
-  const response = await fetch(base + 'common.json');
-  const data = await response.json();
-  actions = data.actions.cat;
-  actions_toy = data.actions.toy;
-  toy_speed = data.actions.toy_speed_for_game;
-  observation_space = data.observation_space;
-  environment = data.environment;
-  model_config = data.model;
-}
-
-function setGameConfigFromGlobal() {
-  if (!window.catGameConfig) {
-    throw new Error('window.catGameConfig が未定義です。React側でセットしてください。');
-  }
-  const data = window.catGameConfig;
-  actions = data.actions.cat;
-  actions_toy = data.actions.toy;
-  toy_speed = data.actions.toy_speed_for_game;
-  observation_space = data.observation_space;
-  environment = data.environment;
-  model_config = data.model;
-}
+// ゲーム環境の設定
+const environment = {
+  width: 800,
+  height: 600
+};
 
 function linspace(v_min, v_max, num_atoms) {
   const arr = new Array(num_atoms);
@@ -70,15 +42,6 @@ class Cat extends Phaser.GameObjects.Sprite {
   constructor(scene, x, y, init_input, scale) {
     super(scene, x, y, 'cat');
     this.setScale(scale);
-    this.seq_obs = []
-    for (let seq_i = 0; seq_i < model_config.sequence_length; seq_i++) {
-      this.seq_obs[seq_i] = init_input;
-    }
-    //長さ256の配列を作る
-    this.actor_h = new Float32Array(256);
-    this.actor_c = new Float32Array(256);
-    this.critic_h = new Float32Array(256);
-    this.critic_c = new Float32Array(256);
     // velocity sequence (Catは1つだけ保持)
     this.vel_x = 0.0;
     this.vel_y = 0.0;
@@ -180,12 +143,15 @@ class Toy extends Phaser.GameObjects.Sprite {
   }
 
   move(direction) {
-    const matchingActions = actions_toy.filter(action =>
-      action.name === direction
-    );
+    const actions_toy = {
+      'up': { dx: 0, dy: -1 },
+      'down': { dx: 0, dy: 1 },
+      'left': { dx: -1, dy: 0 },
+      'right': { dx: 1, dy: 0 }
+    };
 
-    if (matchingActions.length > 0) {
-      const action = matchingActions[0];
+    const action = actions_toy[direction];
+    if (action) {
       // 速度を更新
       this.vel_x = action.dx * this.currentSpeed;
       this.vel_y = action.dy * this.currentSpeed;
@@ -310,7 +276,6 @@ class GameScene extends Phaser.Scene {
 
 // ゲームを初期化する関数
 async function initializeGame() {
-  await loadConfig(); // base_pathはReact側でwindow.base_pathにセットしてから呼ぶこと
   await loadModel(); // モデルを読み込む
 
   // ゲーム設定

@@ -13,29 +13,18 @@ class CatToyEnv(Env):
 
     def __init__(
         self,
-        config,
         render_mode=None,
-        max_steps=1000,
         chaser=None,
         runners=None,
         reset_interval=2000
     ):
         super().__init__()
         self.render_mode = render_mode
-        self.max_steps = max_steps
+        if self.render_mode == "human":
+            self.render_width = 800
+            self.render_height = 800
+
         self.reset_interval = reset_interval       
-
-        obs_config = config["observation_space"]
-
-        env_config = config["environment"]
-        self.width = env_config["width"]
-        self.height = env_config["height"]
-        self.max_distance = self.width + self.height
-        self.agent_size = env_config["agent_size"]
-
-        self.actions = {
-            key: np.array(config["actions"][key]) for key in config["actions"]
-        }
 
         # agent設定
         self.Chaser = chaser
@@ -59,7 +48,6 @@ class CatToyEnv(Env):
             dtype=np.float32,
         )
         self.action_space = tmp_chaser.get_action_space()
-        # width, height, agent_size等はrunner/chaserから取得する前提。必要なら追加。
 
     def _get_obs(self):
         # 相対位置（Runner - Chaser, tanh正規化）
@@ -103,10 +91,7 @@ class CatToyEnv(Env):
 
     def _init_chaser(self):
         self.chaser = self.Chaser()
-        self.positions[self.chaser] = [
-            random.randint(0, self.width - 1),
-            random.randint(0, self.height - 1),
-        ]
+        self.positions[self.chaser] = [0,0]
 
     def reset(self, seed=None, options=None):
         self.chaser = None
@@ -210,7 +195,7 @@ class CatToyEnv(Env):
         if self.step_count % 30 != 0:
             return
         grid_size = 30
-        scale = grid_size / max(self.width, self.height)
+        scale = grid_size / max(self.render_width, self.render_height)
         grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
         original_cat_x, original_cat_y = self.positions[self.chaser]
