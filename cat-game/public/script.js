@@ -1,6 +1,6 @@
 let debugMode = false; // デバッグモードフラグ
 // velocity sequence length (Pythonと合わせる)
-const vel_seq_len = 3;
+const vel_seq_len = 10;
 // let session;
 
 async function loadModel() {
