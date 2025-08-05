@@ -7,8 +7,11 @@ async function loadModel() {
   try {
     let base = window.base_path || '/';
     if (!base.endsWith('/')) base += '/';
-    console.log('Loading model...');
-    session = await ort.InferenceSession.create(base + 'cat_dqn_policy.onnx');
+    // モデルIDをReact側でセット（例: window.catModelId = '1'）
+    const modelId = window.catModelId || '1';
+    const modelPath = `${base}models/${modelId}/policy.onnx`;
+    console.log('Loading model:', modelPath);
+    session = await ort.InferenceSession.create(modelPath);
     console.log('Model loaded:', session);
   } catch (error) {
     console.error('Failed to load model:', error);

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import GameControls from './GameControls';
 
-export default function GameScreen() {
+export default function GameScreen({ modelId }) {
   const gameContainerRef = useRef(null);
   const [gameOver, setGameOver] = useState(false);
   const [isHardMode, setIsHardMode] = useState(false);
@@ -18,11 +18,12 @@ export default function GameScreen() {
 
   // ゲーム初期化
   const startGame = useCallback(() => {
+    window.catModelId = modelId || '1';
     setGameOver(false);
     if (window.initializeGame) {
       window.initializeGame();
     }
-  }, []);
+  }, [modelId]);
 
   // モード・速度・方向をPhaser側に反映
   useEffect(() => {

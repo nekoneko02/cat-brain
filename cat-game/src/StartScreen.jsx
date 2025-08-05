@@ -1,6 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function StartScreen({ onStart }) {
+  const [modelId, setModelId] = useState('');
+  const [modelList, setModelList] = useState([]);
+
+  useEffect(() => {
+    fetch('/models/models_index.json')
+      .then(res => res.json())
+      .then(list => {
+        setModelList(list);
+        setModelId(list[0]?.id || '');
+      });
+  }, []);
+
+  const handleStart = () => {
+    window.catModelId = modelId;
+    onStart();
+  };
+
+  const selectedModel = modelList.find(m => m.id === modelId);
+
   return (
     <div style={{ textAlign: 'center', marginTop: 60 }}>
       <h1>ねこゲーム</h1>
@@ -22,7 +41,20 @@ export default function StartScreen({ onStart }) {
           <li>速度はスライダー、Shiftキー（長押しで高速）、またはアナログスティックの倒し具合で調整できます</li>
         </ul>
       </section>
-      <button style={{ fontSize: 24, padding: '12px 40px', borderRadius: 8 }} onClick={onStart}>
+      <div style={{ margin: '30px 0' }}>
+        <label style={{ fontSize: 18, marginRight: 12 }}>モデル選択:</label>
+        <select value={modelId} onChange={e => setModelId(e.target.value)} style={{ fontSize: 18 }}>
+          {modelList.map(model => (
+            <option key={model.id} value={model.id}>{model.name}</option>
+          ))}
+        </select>
+        {selectedModel && (
+          <div style={{ marginTop: 12, fontSize: 16, color: '#555' }}>
+            <b>ねこの性格:</b> {selectedModel.description}
+          </div>
+        )}
+      </div>
+      <button style={{ fontSize: 24, padding: '12px 40px', borderRadius: 8 }} onClick={handleStart}>
         スタート
       </button>
     </div>

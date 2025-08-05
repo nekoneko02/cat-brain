@@ -32,3 +32,18 @@ from .runner_stop_and_move import RunnerStopAndMove
 from .runner_snake import RunnerSnake
 from .runner_oscillation import RunnerOscillation
 from .enemy import Enemy
+
+# class名とクラスオブジェクトのマッピング
+gym_agents_mapping = {
+    "Cat": Cat,
+    "Enemy": Enemy,
+    "RunnerBase": RunnerBase,
+    "RunnerCircle": RunnerCircle,
+    "RunnerEscape": RunnerEscape,
+    "RunnerEscapeWhenTooClose": RunnerEscapeWhenTooClose,
+    "RunnerOscillation": RunnerOscillation,
+    "RunnerRandom": RunnerRandom,
+    "RunnerSnake": RunnerSnake,
+    "RunnerStop": RunnerStop,
+    "RunnerStopAndMove": RunnerStopAndMove,
+}
