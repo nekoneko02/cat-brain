@@ -15,8 +15,14 @@ export default function StartScreen({ onStart }) {
 
   const handleStart = () => {
     window.catModelId = modelId;
+    const selected = modelList.find(m => m.id === modelId);
+    if (selected && selected.vel_seq_len) {
+      window.vel_seq_len = selected.vel_seq_len;
+    } else {
+      window.vel_seq_len = 10; // fallback
+    }
     onStart();
-  };
+  }
 
   const selectedModel = modelList.find(m => m.id === modelId);
 

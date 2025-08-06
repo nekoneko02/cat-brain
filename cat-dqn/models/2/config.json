@@ -1,6 +1,6 @@
 {
-  "name": "たぬきねこ",
-  "description": "おもちゃを横に動かすのが好きそう",
+  "name": "たぬきねこ２",
+  "description": "おもちゃを横に動かすのが好きそう. 興味がないと動かない",
   "secret_info": "",
   "env": {
     "vel_seq_len": 10,
@@ -28,7 +28,7 @@
         "vel_seq_len": 10,
         "energy": -1000,
         "collision_threshold": 3,
-        "escape_distance": 1000,
+        "escape_distance": null,
         "escape_steps": 1000,
         "speed": 0.5
       },
@@ -51,7 +51,7 @@
         "vel_seq_len": 10,
         "energy": -1000,
         "collision_threshold": 3,
-        "escape_distance": 1000,
+        "escape_distance": null,
         "escape_steps": 1000,
         "speed": 0.5
       },

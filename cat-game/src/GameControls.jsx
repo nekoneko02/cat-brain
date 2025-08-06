@@ -33,12 +33,23 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
   }, [onSpeed]);
   const stickRef = useRef(null);
   const dragging = useRef(false);
-  const [stickPos, setStickPos] = useState({ x: 60, y: 60 });
-
-  // アナログスティックの中心座標
-  const center = { x: 60, y: 60 };
-  const radius = 50;
-  const knobRadius = 18;
+  // スティックサイズを画面幅に応じて可変（最大180px）
+  const getStickSize = () => {
+    if (typeof window !== 'undefined') {
+      return Math.min(Math.floor(window.innerWidth * 0.25), 180);
+    }
+    return 180;
+  };
+  const [stickSize, setStickSize] = useState(getStickSize());
+  React.useEffect(() => {
+    const handleResize = () => setStickSize(getStickSize());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  const center = { x: stickSize / 2, y: stickSize / 2 };
+  const radius = stickSize / 2 - 10;
+  const knobRadius = Math.max(18, stickSize * 0.15);
+  const [stickPos, setStickPos] = useState(center);
 
   // スティック操作イベント
   const handlePointerDown = (e) => {
@@ -60,22 +71,26 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
     let dx = x - center.x;
     let dy = y - center.y;
     let dist = Math.sqrt(dx * dx + dy * dy);
-    // 4方向判定
-    let dir = null;
+    const maxDist = radius - knobRadius;
+    // 連続値ベクトル
+    let vx = 0, vy = 0;
     if (dist > 5) {
-      if (Math.abs(dx) > Math.abs(dy)) {
-        dir = dx > 0 ? 'right' : 'left';
-        x = center.x + Math.sign(dx) * Math.min(Math.abs(dx), radius - knobRadius);
-        y = center.y;
-      } else {
-        dir = dy > 0 ? 'down' : 'up';
-        x = center.x;
-        y = center.y + Math.sign(dy) * Math.min(Math.abs(dy), radius - knobRadius);
+      // 範囲内に収める
+      if (dist > maxDist) {
+        dx = (dx / dist) * maxDist;
+        dy = (dy / dist) * maxDist;
+        x = center.x + dx;
+        y = center.y + dy;
+        dist = maxDist;
       }
       setStickPos({ x, y });
-      onDirection(dir);
+      vx = dx / maxDist;
+      vy = dy / maxDist;
+      // -1.0～1.0に正規化
+      vx = Math.max(-1, Math.min(1, vx));
+      vy = Math.max(-1, Math.min(1, vy));
+      onDirection({ x: vx, y: vy });
       // スティックの倒し具合で速度を切り替え（0～2で線形割り当て）
-      const maxDist = radius - knobRadius;
       const stickSpeed = Math.min(dist / maxDist, 1) * 2;
       onSpeed(Number(stickSpeed.toFixed(2)));
     } else {
@@ -99,13 +114,14 @@ export default function GameControls({ onDirection, onSpeed, onMode, isHardMode,
       <div style={{ marginRight: 32, userSelect: 'none' }}>
         <svg
           ref={stickRef}
-          width={120}
-          height={120}
+          width={stickSize}
+          height={stickSize}
           style={{
             touchAction: 'none',
             background: '#f5f5f5',
             borderRadius: '50%',
             boxShadow: '0 0 8px #aaa',
+            transition: 'width 0.2s, height 0.2s',
           }}
           onMouseDown={handlePointerDown}
           onMouseUp={handlePointerUp}

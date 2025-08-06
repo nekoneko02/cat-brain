@@ -1,6 +1,6 @@
 let debugMode = false; // デバッグモードフラグ
 // velocity sequence length (Pythonと合わせる)
-const vel_seq_len = 10;
+const vel_seq_len = typeof window.vel_seq_len !== 'undefined' ? window.vel_seq_len : 10;
 // let session;
 
 async function loadModel() {
@@ -146,27 +146,37 @@ class Toy extends Phaser.GameObjects.Sprite {
   }
 
   move(direction) {
-    const actions_toy = {
-      'up': { dx: 0, dy: -1 },
-      'down': { dx: 0, dy: 1 },
-      'left': { dx: -1, dy: 0 },
-      'right': { dx: 1, dy: 0 }
-    };
-
-    const action = actions_toy[direction];
-    if (action) {
-      // 速度を更新
-      this.vel_x = action.dx * this.currentSpeed;
-      this.vel_y = action.dy * this.currentSpeed;
+    // 連続値ベクトル対応
+    if (typeof direction === 'object' && direction !== null && 'x' in direction && 'y' in direction) {
+      // x, y: -1.0～1.0, 速度はcurrentSpeedを最大値とする
+      this.vel_x = direction.x * this.currentSpeed;
+      this.vel_y = direction.y * this.currentSpeed;
       this.x += this.vel_x;
       this.y += this.vel_y;
-      // velocity sequence更新
       this.vel_seq.push([this.vel_x, this.vel_y]);
       if (this.vel_seq.length > vel_seq_len) {
         this.vel_seq.shift();
       }
+    } else {
+      // 4方向文字列
+      const actions_toy = {
+        'up': { dx: 0, dy: -1 },
+        'down': { dx: 0, dy: 1 },
+        'left': { dx: -1, dy: 0 },
+        'right': { dx: 1, dy: 0 }
+      };
+      const action = actions_toy[direction];
+      if (action) {
+        this.vel_x = action.dx * this.currentSpeed;
+        this.vel_y = action.dy * this.currentSpeed;
+        this.x += this.vel_x;
+        this.y += this.vel_y;
+        this.vel_seq.push([this.vel_x, this.vel_y]);
+        if (this.vel_seq.length > vel_seq_len) {
+          this.vel_seq.shift();
+        }
+      }
     }
-
     // 境界チェック
     this.x = Phaser.Math.Clamp(this.x, 0, this.scene.game.config.width - this.displayWidth);
     this.y = Phaser.Math.Clamp(this.y, 0, this.scene.game.config.height - this.displayHeight);

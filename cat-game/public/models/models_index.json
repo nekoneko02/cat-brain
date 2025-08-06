@@ -1,7 +1,30 @@
 [
   {
-    "id": "1",
-    "name": "モデル1",
-    "description": "おだやかで好奇心旺盛なねこ"
+    "name": "たぬきねこ",
+    "vel_seq_len": 10,
+    "description": "おもちゃを横に動かすのが好きそう",
+    "secret_info": "",
+    "id": "1"
+  },
+  {
+    "name": "たぬきねこ２",
+    "vel_seq_len": 10,
+    "description": "おもちゃを横に動かすのが好きそう. 興味がないと動かない",
+    "secret_info": "",
+    "id": "2"
+  },
+  {
+    "name": "たぬきねこ３",
+    "vel_seq_len": 10,
+    "description": "うねうねした動きに反応する…？",
+    "secret_info": "",
+    "id": "3"
+  },
+  {
+    "name": "たぬきねこ４",
+    "vel_seq_len": 10,
+    "description": "おもちゃを止めてから動かすのが好きそう",
+    "secret_info": "",
+    "id": "4"
   }
 ]

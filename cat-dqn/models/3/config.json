@@ -1,6 +1,6 @@
 {
-  "name": "たぬきねこ",
-  "description": "おもちゃを横に動かすのが好きそう",
+  "name": "たぬきねこ３",
+  "description": "うねうねした動きに反応する…？",
   "secret_info": "",
   "env": {
     "vel_seq_len": 10,
@@ -28,13 +28,37 @@
         "vel_seq_len": 10,
         "energy": -1000,
         "collision_threshold": 3,
-        "escape_distance": 1000,
-        "escape_steps": 1000,
+        "escape_distance": null,
+        "escape_steps": 2000,
         "speed": 0.5
       },
-      "probability": 0.25
+      "probability": 0.2
     },
-    "RunnerCircle": {
+    "RunnerRandom": {
+      "kwargs": {
+        "vel_seq_len": 10,
+        "energy": -1000,
+        "collision_threshold": 3,
+        "escape_distance": null,
+        "escape_steps": 2000,
+        "speed": 0.5
+      },
+      "probability": 0.1
+    },
+    "RunnerOscillation": {
+      "kwargs": {
+        "vel_seq_len": 10,
+        "energy": -1000,
+        "collision_threshold": 3,
+        "escape_distance": null,
+        "escape_steps": 2000,
+        "axis": "x",
+        "amplitude": 10.0,
+        "freq": 0.1
+      },
+      "probability": 0.2
+    },
+    "RunnerSnake": {
       "kwargs": {
         "vel_seq_len": 10,
         "energy": 1000,
@@ -42,20 +66,10 @@
         "escape_distance": 1000,
         "escape_steps": 2000,
         "speed": 0.5,
-        "radius": 50.0
+        "amplitude": 1.0,
+        "freq": 1.0
       },
       "probability": 0.5
-    },
-    "RunnerRandom": {
-      "kwargs": {
-        "vel_seq_len": 10,
-        "energy": -1000,
-        "collision_threshold": 3,
-        "escape_distance": 1000,
-        "escape_steps": 1000,
-        "speed": 0.5
-      },
-      "probability": 0.25
     }
   },
   "total_timesteps": 200000

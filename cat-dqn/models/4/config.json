@@ -1,6 +1,6 @@
 {
-  "name": "たぬきねこ",
-  "description": "おもちゃを横に動かすのが好きそう",
+  "name": "たぬきねこ４",
+  "description": "おもちゃを止めてから動かすのが好きそう",
   "secret_info": "",
   "env": {
     "vel_seq_len": 10,
@@ -23,39 +23,27 @@
     }
   },
   "runners": {
-    "RunnerEscape": {
-      "kwargs": {
-        "vel_seq_len": 10,
-        "energy": -1000,
-        "collision_threshold": 3,
-        "escape_distance": 1000,
-        "escape_steps": 1000,
-        "speed": 0.5
-      },
-      "probability": 0.25
-    },
-    "RunnerCircle": {
+    "RunnerStopAndMove": {
       "kwargs": {
         "vel_seq_len": 10,
         "energy": 1000,
         "collision_threshold": 3,
         "escape_distance": 1000,
-        "escape_steps": 2000,
+        "escape_steps": 1000,
         "speed": 0.5,
-        "radius": 50.0
+        "move_interval": 10
       },
       "probability": 0.5
     },
-    "RunnerRandom": {
+    "RunnerStop": {
       "kwargs": {
         "vel_seq_len": 10,
         "energy": -1000,
         "collision_threshold": 3,
-        "escape_distance": 1000,
-        "escape_steps": 1000,
-        "speed": 0.5
+        "escape_distance": null,
+        "escape_steps": 2000
       },
-      "probability": 0.25
+      "probability": 0.5
     }
   },
   "total_timesteps": 200000
