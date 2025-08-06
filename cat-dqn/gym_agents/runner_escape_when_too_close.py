@@ -7,7 +7,7 @@ class RunnerEscapeWhenTooClose(RunnerBase):
         self.threshold = threshold
         self.speed = speed
 
-    def get_action(self, obs):
+    def _get_action(self, obs):
         # ねこから遠ざかる
         dx, dy = obs[0], obs[1]
         dist = np.sqrt(dx**2 + dy**2)

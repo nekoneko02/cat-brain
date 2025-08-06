@@ -8,7 +8,7 @@ class RunnerStopAndMove(RunnerBase):
         self.speed = speed
         self.counter = 0
 
-    def get_action(self, obs):
+    def _get_action(self, obs):
         """
         obs: np.ndarray
             [rel_pos_norm(2), chaser_vel(2), runner_vel_seq(n), fatigue(1)]

@@ -6,7 +6,7 @@ class RunnerEscape(RunnerBase):
         super().__init__(*args, **kwargs)
         self.speed = speed
 
-    def get_action(self, observation):
+    def _get_action(self, observation):
         rel_pos = observation[0:2]
         distance = np.linalg.norm(rel_pos)
         direction = self.speed * rel_pos / (distance + 1e-8)

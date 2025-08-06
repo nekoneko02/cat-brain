@@ -7,7 +7,7 @@ class RunnerRandom(RunnerBase):
         super().__init__(*args, **kwargs)
         self.speed = speed
 
-    def get_action(self, observation):
+    def _get_action(self, observation):
         direction = random.choice([(0, self.speed), (self.speed, 0), (-self.speed, 0), (0, -self.speed)])
         self.vel = np.array([direction[0], direction[1]], dtype=np.float32)
         self.vel_seq.pop(0)

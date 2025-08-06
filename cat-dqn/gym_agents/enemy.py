@@ -6,7 +6,7 @@ class Enemy(RunnerBase):
         super().__init__(*args, **kwargs)
         self.speed = speed
 
-    def get_action(self, obs):
+    def _get_action(self, obs):
         # Catに近づく
         dx, dy = -obs[0], -obs[1]
         norm = np.sqrt(dx**2 + dy**2)

@@ -5,7 +5,6 @@ import numpy as np
 from gymnasium import spaces, Env
 from IPython.display import clear_output
 
-COLLISION_THRESHOLD = 3
 RUNNNER_DISTANCE_THRESHOLD = 1000
 
 class CatToyEnv(Env):
@@ -30,8 +29,6 @@ class CatToyEnv(Env):
         self.Chaser = chaser
         self.Runners = runners
 
-        # CatとToyのサイズを考慮して衝突判定を行う
-        self.collision_threshold = COLLISION_THRESHOLD
         # 環境サイズ等はrunner/chaserから取得する前提
         tmp_chaser = self.Chaser()
         tmp_runner = self.Runners[0][0]()
@@ -68,13 +65,12 @@ class CatToyEnv(Env):
         return obs
 
     def _init_runner(self):
-        self.step_count_from_init_runner = 1
         # (Factory, rate)リストからrateに従いサンプリング
         factories, rates = zip(*self.Runners)
         idx = np.random.choice(len(factories), p=rates)
         self.current_runner = factories[idx]()
         self.info["current_runner"] = str(self.current_runner)
-        print(f"init_runner: current_runner is {self.current_runner}")
+        
         # chaserの位置取得
         chaser_pos = np.array(self.positions[self.chaser], dtype=np.float32)
 
@@ -113,7 +109,6 @@ class CatToyEnv(Env):
     def step(self, action):
         # action: int (cat_actionsのindex)
         self.step_count += 1
-        self.step_count_from_init_runner += 1
 
         # cat_actionsのindexからaction dictを取得
         self._step_runners()
@@ -121,12 +116,10 @@ class CatToyEnv(Env):
 
         obs = self._get_obs()
 
-        squared_distance = self.squared_distance(self.chaser, self.current_runner)
-        if (
-            self.step_count_from_init_runner >= self.reset_interval
-            or squared_distance > RUNNNER_DISTANCE_THRESHOLD**2
-            or is_collision
-        ):
+        # runnerのリセット判定をRunnerBaseのis_resetで一元化（cat_pos, toy_pos, step_countを渡す）
+        cat_pos = self.positions[self.chaser]
+        toy_pos = self.positions[self.current_runner]
+        if self.current_runner.is_reset(cat_pos, toy_pos):
             self._init_runner()
 
         if self.render_mode == "human":
@@ -143,7 +136,11 @@ class CatToyEnv(Env):
         action = self.chaser.get_action(action, self._get_obs())
         self._move_agent(self.chaser, action)
 
-        is_collision, distance = self._is_collision(self.chaser, self.current_runner, return_distance=True)
+        distance = self.squared_distance(self.chaser, self.current_runner)
+        
+        cat_pos = self.positions[self.chaser]
+        toy_pos = self.positions[self.current_runner]
+        is_collision = self.current_runner.is_caught(cat_pos, toy_pos)
 
         # 最適行動によるボーナス
         if self.current_runner.get_energy() > 0 and distance < self.prev_distance:
@@ -184,12 +181,6 @@ class CatToyEnv(Env):
         agent2_x, agent2_y = self.positions[agent2]
         distance = (agent1_x - agent2_x) ** 2 + (agent1_y - agent2_y) ** 2
         return distance
-
-    def _is_collision(self, agent1, agent2, return_distance=False):
-        distance = self.squared_distance(agent1, agent2)
-        if return_distance:
-            return distance < self.collision_threshold, distance
-        return distance < self.collision_threshold
 
     def render(self):
         if self.step_count % 30 != 0:

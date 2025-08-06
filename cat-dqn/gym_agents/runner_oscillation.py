@@ -9,7 +9,7 @@ class RunnerOscillation(RunnerBase):
         self.freq = freq
         self.t = 0
 
-    def get_action(self, obs):
+    def _get_action(self, obs):
         self.t += 1
         if self.axis == 'x':
             dx = self.amplitude * np.sin(self.t * self.freq)

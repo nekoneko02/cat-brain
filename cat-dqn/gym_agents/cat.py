@@ -6,24 +6,18 @@ import cat_actions
 importlib.reload(cat_actions)
 
 class Cat:
-    def __init__(self):
+    def __init__(self, cat_actions, initial_energy, max_energy, basal_metabolic_rate, movement_energy_rate):
         self.vel = [0.0, 0.0]
-        self.energy = 1000
-        self.max_energy = 2000
-        self.basal_metabolic_rate = 0.25
-        self.movement_energy_rate = 0.1
+        self.energy = initial_energy
+        self.max_energy = max_energy
+        self.basal_metabolic_rate = basal_metabolic_rate
+        self.movement_energy_rate = movement_energy_rate
 
-        self.cat_actions = [
-            cat_actions.chase.Chase(),
-            cat_actions.stop.Stop(),
-            cat_actions.escape.Escape()
-        ]
+        self.cat_actions = cat_actions
+        
     def get_action_space(self):
         num_actions =  len(self.cat_actions)
         return spaces.Discrete(num_actions)
-
-    def set_velocity(self, dx, dy):
-        self.vel = [dx, dy]
 
     def get_action(self, option, obs):
         obs = torch.Tensor(obs)

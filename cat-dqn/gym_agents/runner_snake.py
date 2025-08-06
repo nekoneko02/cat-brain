@@ -9,7 +9,7 @@ class RunnerSnake(RunnerBase):
         self.freq = freq
         self.t = 0
 
-    def get_action(self, obs):
+    def _get_action(self, obs):
         """
         RunnerSnakeは、猫から遠ざかる方向に進みつつ、蛇行（ジグザグ）する動きを加えます。
         - 基本方向はRunnerからCatへのベクトルの逆方向（遠ざかる）

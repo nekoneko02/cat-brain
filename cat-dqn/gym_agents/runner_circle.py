@@ -8,7 +8,7 @@ class RunnerCircle(RunnerBase):
         self.radius = radius
         self.speed = speed
 
-    def get_action(self, observation):
+    def _get_action(self, observation):
         self.angle += self.speed / self.radius
         x = np.cos(self.angle)
         y = np.sin(self.angle)
